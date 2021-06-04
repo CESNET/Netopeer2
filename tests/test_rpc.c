@@ -289,7 +289,7 @@ test_commit(void **state)
     uint64_t msgid;
     struct lyd_node *envp, *op;
 
-    /* Try to close a session */
+    /* try commiting config, there is no candidate */
     rpc = nc_rpc_commit(0, 0, NULL, NULL, NC_PARAMTYPE_CONST);
     msgtype = nc_send_rpc(st->nc_sess, rpc, 1000, &msgid);
     assert_int_equal(NC_MSG_RPC, msgtype);
@@ -331,6 +331,62 @@ test_discard(void **state)
 }
 
 static void
+test_getconfig(void **state)
+{
+    struct np_test *st = *state;
+    struct nc_rpc *rpc;
+    NC_MSG_TYPE msgtype;
+    uint64_t msgid;
+    struct lyd_node *envp, *op;
+
+    /* try getting config */
+    rpc = nc_rpc_getconfig(NC_DATASTORE_RUNNING, NULL, NC_WD_ALL, NC_PARAMTYPE_CONST);
+    msgtype = nc_send_rpc(st->nc_sess, rpc, 1000, &msgid);
+    assert_int_equal(NC_MSG_RPC, msgtype);
+
+    /* recieve reply, should get configuration in op*/
+    msgtype = nc_recv_reply(st->nc_sess, rpc, msgid, 2000, &envp, &op);
+    assert_int_equal(msgtype, NC_MSG_REPLY);
+    assert_non_null(op);
+    assert_non_null(envp);
+    assert_string_equal(LYD_NAME(lyd_child(op)), "data");
+
+    /* TODO: Test the configuration contents*/
+
+    nc_rpc_free(rpc);
+    lyd_free_tree(envp);
+    lyd_free_tree(op);
+}
+
+static void
+test_validate(void **state)
+{
+    struct np_test *st = *state;
+    struct nc_rpc *rpc;
+    NC_MSG_TYPE msgtype;
+    uint64_t msgid;
+    struct lyd_node *envp, *op;
+
+    /* try validating config of the running datastore */
+    rpc = nc_rpc_validate(NC_DATASTORE_RUNNING, NULL, NC_PARAMTYPE_CONST);
+    msgtype = nc_send_rpc(st->nc_sess, rpc, 1000, &msgid);
+    assert_int_equal(NC_MSG_RPC, msgtype);
+
+    /* recieve reply, should succeed */
+    msgtype = nc_recv_reply(st->nc_sess, rpc, msgid, 2000, &envp, &op);
+    assert_int_equal(msgtype, NC_MSG_REPLY);
+    assert_null(op);
+    assert_non_null(envp);
+    assert_string_equal(LYD_NAME(lyd_child(envp)), "ok");
+
+    nc_rpc_free(rpc);
+    lyd_free_tree(envp);
+
+    /* TODO: Test for url or config instead of datastore */
+    /* TODO: Test for valid and invalid configurations */
+}
+
+static void
 test_unsuported(void **state)
 {
     struct np_test *st = *state;
@@ -357,6 +413,8 @@ main(void)
         cmocka_unit_test(test_kill),
         cmocka_unit_test(test_commit),
         cmocka_unit_test(test_discard),
+        cmocka_unit_test(test_getconfig),
+        cmocka_unit_test(test_validate),
         cmocka_unit_test(test_unsuported),
     };
 
