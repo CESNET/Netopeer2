@@ -1,0 +1,28 @@
+module rfc2 {
+  namespace rfc2;
+  prefix rfc2;
+
+  import ietf-inet-types {
+    prefix "inet";
+  }
+  container top {
+    container protocols {
+      container ospf {
+        list area {
+          key "name";
+          leaf name {
+            type inet:ip-address;
+          }
+          container interfaces {
+            list interface  {
+              key "name";
+              leaf name {
+                type inet:ip-address;
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

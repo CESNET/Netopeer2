@@ -1,0 +1,27 @@
+module rfc1 {
+  namespace rfc1;
+  prefix rfc1;
+
+  import ietf-inet-types {
+    prefix "inet";
+  }
+
+  container top {
+    container interface {
+      leaf name {
+        type string;
+      }
+      leaf mtu {
+        type uint32;
+      }
+      container address {
+        leaf name {
+          type inet:ip-address;
+        }
+        leaf prefix-length {
+          type uint8;
+        }
+      }
+    }
+  }
+}

@@ -47,7 +47,13 @@
         "  </rpc-error>\n"\
         "</rpc-reply>\n"
 
-NP_GLOB_SETUP_FUNC
+static int
+local_setup(void **state)
+{
+    NP_GLOB_SETUP_ENV_FUNC;
+    assert_int_equal(setenv_rv, 0);
+    return np_glob_setup_np2(state);
+}
 
 static void
 test_types(void **state)
@@ -122,11 +128,8 @@ test_lock(void **state)
     msgtype = nc_send_rpc(st->nc_sess, rpc, 1000, &msgid);
     assert_int_equal(msgtype, NC_MSG_RPC);
 
-    /* receive reply */
-    msgtype = nc_recv_reply(st->nc_sess, rpc, msgid, 2000, &envp, &op);
-    assert_int_equal(msgtype, NC_MSG_REPLY);
-    assert_null(op);
-    assert_string_equal(LYD_NAME(lyd_child(envp)), "ok");
+    /* receive reply, should succeed */
+    ASSERT_OK_REPLY;
 
     lyd_free_tree(envp);
 
@@ -135,10 +138,7 @@ test_lock(void **state)
     assert_int_equal(msgtype, NC_MSG_RPC);
 
     /* recieve reply, should yield error */
-    msgtype = nc_recv_reply(st->nc_sess2, rpc, msgid, 2000, &envp, &op);
-    assert_int_equal(msgtype, NC_MSG_REPLY);
-    assert_null(op);
-    assert_string_equal(LYD_NAME(lyd_child(envp)), "rpc-error");
+    ASSERT_RPC_ERROR_SESS2;
     assert_int_equal(LY_SUCCESS, lyd_print_mem(&str, envp, LYD_XML, 0));
 
     assert_int_not_equal(-1, asprintf(&str2, LOCK_FAIL_TEMPLATE, msgid, nc_session_get_id(st->nc_sess)));
@@ -148,20 +148,17 @@ test_lock(void **state)
     free(str);
     free(str2);
 
-    nc_rpc_free(rpc);
-    lyd_free_tree(envp);
+    FREE_TEST_VARS;
 
     /* unlock RPC */
     rpc = nc_rpc_unlock(NC_DATASTORE_RUNNING);
+
     msgtype = nc_send_rpc(st->nc_sess, rpc, 1000, &msgid);
     assert_int_equal(msgtype, NC_MSG_RPC);
-    msgtype = nc_recv_reply(st->nc_sess, rpc, msgid, 2000, &envp, &op);
-    assert_int_equal(msgtype, NC_MSG_REPLY);
-    assert_null(op);
-    assert_string_equal(LYD_NAME(lyd_child(envp)), "ok");
 
-    nc_rpc_free(rpc);
-    lyd_free_tree(envp);
+    ASSERT_OK_REPLY;
+
+    FREE_TEST_VARS;
     /* TODO: check if lock prevents changes */
 }
 
@@ -183,24 +180,18 @@ test_unlock(void **state)
     assert_int_equal(msgtype, NC_MSG_RPC);
 
     /* receive reply */
-    msgtype = nc_recv_reply(st->nc_sess2, rpc, msgid, 2000, &envp, &op);
-    assert_int_equal(msgtype, NC_MSG_REPLY);
-    assert_null(op);
-    assert_string_equal(LYD_NAME(lyd_child(envp)), "ok");
+    ASSERT_OK_REPLY_SESS2;
 
-    nc_rpc_free(rpc);
-    lyd_free_tree(envp);
+    FREE_TEST_VARS;
 
     /* Try unlocking a lock by a different session */
     rpc = nc_rpc_unlock(NC_DATASTORE_RUNNING);
+
     msgtype = nc_send_rpc(st->nc_sess, rpc, 1000, &msgid);
     assert_int_equal(msgtype, NC_MSG_RPC);
 
     /* recieve reply, should yield error */
-    msgtype = nc_recv_reply(st->nc_sess, rpc, msgid, 2000, &envp, &op);
-    assert_int_equal(msgtype, NC_MSG_REPLY);
-    assert_null(op);
-    assert_string_equal(LYD_NAME(lyd_child(envp)), "rpc-error");
+    ASSERT_RPC_ERROR;
     assert_int_equal(LY_SUCCESS, lyd_print_mem(&str, envp, LYD_XML, 0));
 
     /* error expected */
@@ -209,22 +200,18 @@ test_unlock(void **state)
     free(str);
     free(str2);
 
-    nc_rpc_free(rpc);
-    lyd_free_tree(envp);
+    FREE_TEST_VARS;
 
     /* Try unlocking the original session, should succeed */
     rpc = nc_rpc_unlock(NC_DATASTORE_RUNNING);
+
     msgtype = nc_send_rpc(st->nc_sess2, rpc, 1000, &msgid);
     assert_int_equal(NC_MSG_RPC, msgtype);
 
     /* recieve reply, should succeed */
-    msgtype = nc_recv_reply(st->nc_sess2, rpc, msgid, 2000, &envp, &op);
-    assert_int_equal(msgtype, NC_MSG_REPLY);
-    assert_null(op);
-    assert_string_equal(LYD_NAME(lyd_child(envp)), "ok");
+    ASSERT_OK_REPLY_SESS2;
 
-    nc_rpc_free(rpc);
-    lyd_free_tree(envp);
+    FREE_TEST_VARS;
 }
 
 static void
@@ -247,10 +234,7 @@ test_get(void **state)
     assert_non_null(op);
     assert_non_null(envp);
 
-    nc_rpc_free(rpc);
-    lyd_free_tree(envp);
-    lyd_free_tree(op);
-
+    FREE_TEST_VARS;
     /* TODO: test if filter works */
 }
 
@@ -264,18 +248,14 @@ test_kill(void **state)
     struct lyd_node *envp, *op;
 
     /* Try to close a session */
-    rpc = nc_rpc_kill(nc_session_get_id(st->nc_sess2));
+    rpc = nc_rpc_kill(nc_session_get_id(st->nc_sess));
     msgtype = nc_send_rpc(st->nc_sess, rpc, 1000, &msgid);
     assert_int_equal(NC_MSG_RPC, msgtype);
 
     /* recieve reply, should fail since wrong permissions */
-    msgtype = nc_recv_reply(st->nc_sess, rpc, msgid, 2000, &envp, &op);
-    assert_int_equal(msgtype, NC_MSG_REPLY);
-    assert_null(op);
-    assert_string_equal(LYD_NAME(lyd_child(envp)), "rpc-error");
+    ASSERT_RPC_ERROR;
 
-    nc_rpc_free(rpc);
-    lyd_free_tree(envp);
+    FREE_TEST_VARS;
     /* TODO: Check error message, would depend on current user */
     /* TODO: NACM tests */
 }
@@ -294,14 +274,10 @@ test_commit(void **state)
     msgtype = nc_send_rpc(st->nc_sess, rpc, 1000, &msgid);
     assert_int_equal(NC_MSG_RPC, msgtype);
 
-    /* recieve reply, should fail since wrong permissions */
-    msgtype = nc_recv_reply(st->nc_sess, rpc, msgid, 2000, &envp, &op);
-    assert_int_equal(msgtype, NC_MSG_REPLY);
-    assert_null(op);
-    assert_string_equal(LYD_NAME(lyd_child(envp)), "ok");
+    /* recieve a reply, should succeed */
+    ASSERT_OK_REPLY;
 
-    nc_rpc_free(rpc);
-    lyd_free_tree(envp);
+    FREE_TEST_VARS;
     /* TODO: test funcionality */
 }
 
@@ -320,13 +296,9 @@ test_discard(void **state)
     assert_int_equal(NC_MSG_RPC, msgtype);
 
     /* recieve reply, should fail since wrong permissions */
-    msgtype = nc_recv_reply(st->nc_sess, rpc, msgid, 2000, &envp, &op);
-    assert_int_equal(msgtype, NC_MSG_REPLY);
-    assert_null(op);
-    assert_string_equal(LYD_NAME(lyd_child(envp)), "ok");
+    ASSERT_OK_REPLY;
 
-    nc_rpc_free(rpc);
-    lyd_free_tree(envp);
+    FREE_TEST_VARS;
     /* TODO: test funcionality */
 }
 
@@ -353,9 +325,7 @@ test_getconfig(void **state)
 
     /* TODO: Test the configuration contents*/
 
-    nc_rpc_free(rpc);
-    lyd_free_tree(envp);
-    lyd_free_tree(op);
+    FREE_TEST_VARS;
 }
 
 static void
@@ -373,15 +343,9 @@ test_validate(void **state)
     assert_int_equal(NC_MSG_RPC, msgtype);
 
     /* recieve reply, should succeed */
-    msgtype = nc_recv_reply(st->nc_sess, rpc, msgid, 2000, &envp, &op);
-    assert_int_equal(msgtype, NC_MSG_REPLY);
-    assert_null(op);
-    assert_non_null(envp);
-    assert_string_equal(LYD_NAME(lyd_child(envp)), "ok");
+    ASSERT_OK_REPLY;
 
-    nc_rpc_free(rpc);
-    lyd_free_tree(envp);
-
+    FREE_TEST_VARS;
     /* TODO: Test for url or config instead of datastore */
     /* TODO: Test for valid and invalid configurations */
 }
@@ -419,5 +383,5 @@ main(void)
     };
 
     nc_verbosity(NC_VERB_WARNING);
-    return cmocka_run_group_tests(tests, np_glob_setup, np_glob_teardown);
+    return cmocka_run_group_tests(tests, local_setup, np_glob_teardown);
 }

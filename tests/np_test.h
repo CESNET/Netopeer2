@@ -28,17 +28,43 @@
 
 #include <nc_client.h>
 
-/* global setup function specific for a test */
-#define NP_GLOB_SETUP_FUNC \
-static int \
-np_glob_setup(void **state) \
-{ \
+/* global setpu for environment variables for sysrepo*/
+#define NP_GLOB_SETUP_ENV_FUNC \
     char file[64]; \
+    int setenv_rv; \
 \
     strcpy(file, __FILE__); \
     file[strlen(file) - 2] = '\0'; \
-    return _np_glob_setup(state, strrchr(file, '/') + 1); \
-}
+    setenv_rv = setup_setenv_sysrepo(strrchr(file, '/') + 1);
+
+#define FREE_TEST_VARS \
+  nc_rpc_free(rpc); \
+  lyd_free_tree(envp); \
+  lyd_free_tree(op);
+
+#define ASSERT_OK_REPLY \
+    msgtype = nc_recv_reply(st->nc_sess, rpc, msgid, 2000, &envp, &op); \
+    assert_int_equal(msgtype, NC_MSG_REPLY); \
+    assert_null(op); \
+    assert_string_equal(LYD_NAME(lyd_child(envp)), "ok");
+
+#define ASSERT_OK_REPLY_SESS2 \
+    msgtype = nc_recv_reply(st->nc_sess2, rpc, msgid, 2000, &envp, &op); \
+    assert_int_equal(msgtype, NC_MSG_REPLY); \
+    assert_null(op); \
+    assert_string_equal(LYD_NAME(lyd_child(envp)), "ok");
+
+#define ASSERT_RPC_ERROR \
+    msgtype = nc_recv_reply(st->nc_sess, rpc, msgid, 2000, &envp, &op); \
+    assert_int_equal(msgtype, NC_MSG_REPLY); \
+    assert_null(op); \
+    assert_string_equal(LYD_NAME(lyd_child(envp)), "rpc-error");
+
+#define ASSERT_RPC_ERROR_SESS2 \
+    msgtype = nc_recv_reply(st->nc_sess2, rpc, msgid, 2000, &envp, &op); \
+    assert_int_equal(msgtype, NC_MSG_REPLY); \
+    assert_null(op); \
+    assert_string_equal(LYD_NAME(lyd_child(envp)), "rpc-error");
 
 /* test state structure */
 struct np_test {
@@ -47,7 +73,9 @@ struct np_test {
     struct nc_session *nc_sess2;
 };
 
-int _np_glob_setup(void **state, const char *test_name);
+int np_glob_setup_np2(void **state);
+
+int setup_setenv_sysrepo(const char *test_name);
 
 int np_glob_teardown(void **state);
 

@@ -28,14 +28,14 @@ include_directories(${CMAKE_CURRENT_BINARY_DIR})
 set(test_sources "np_test.c")
 
 # list of all the tests
-set(tests test_rpc)
+set(tests test_rpc test_edit)
 
 # build the executables
 foreach(test_name IN LISTS tests)
     add_executable(${test_name} ${test_sources} ${test_name}.c)
-    target_link_libraries(${test_name} ${CMOCKA_LIBRARIES} ${LIBNETCONF2_LIBRARIES} ${LIBYANG_LIBRARIES})
+    target_link_libraries(${test_name} ${CMOCKA_LIBRARIES} ${LIBNETCONF2_LIBRARIES} ${LIBYANG_LIBRARIES} ${SYSREPO_LIBRARIES})
     set_property(TARGET ${test_name} PROPERTY RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
-endforeach()
+endforeach(test_name)
 
 # add tests with their attributes
 foreach(test_name IN LISTS tests)

@@ -64,7 +64,7 @@ setup_server_socket_wait(void)
     return 0;
 }
 
-static int
+int
 setup_setenv_sysrepo(const char *test_name)
 {
     int ret = 1;
@@ -98,16 +98,13 @@ cleanup:
 }
 
 int
-_np_glob_setup(void **state, const char *test_name)
+np_glob_setup_np2(void **state)
 {
     struct np_test *st;
     pid_t pid;
     int fd;
 
-    /* set sysrepo environment variables */
-    if (setup_setenv_sysrepo(test_name)) {
-        return 1;
-    }
+    /* sysrepo environment variables must be set by NP_GLOB_SETUP_ENV_FUNC prior */
 
     /* install modules */
     if (setenv("NP2_MODULE_DIR", NP_ROOT_DIR "/modules", 1)) {
