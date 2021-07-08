@@ -53,6 +53,13 @@
 
 #define GET_CONFIG GET_CONFIG_FILTER(NULL);
 
+#define SEND_EDIT_RPC(module)                                               \
+    rpc = nc_rpc_edit(NC_DATASTORE_RUNNING, NC_RPC_EDIT_DFLTOP_MERGE,       \
+                      NC_RPC_EDIT_TESTOPT_SET, NC_RPC_EDIT_ERROPT_ROLLBACK, \
+                      module , NC_PARAMTYPE_CONST);                         \
+    msgtype = nc_send_rpc(st->nc_sess, rpc, 1000, &msgid);                  \
+    assert_int_equal(NC_MSG_RPC, msgtype);
+
 #define EMPTY_GETCONFIG                                                 \
     "<get-config xmlns=\"urn:ietf:params:xml:ns:netconf:base:1.0\">\n"  \
     "  <data/>\n"                                                       \
@@ -315,6 +322,12 @@
     "  </data>\n"                                                       \
     "</get-config>\n"
 
+#define RFC2_DELETE_ALL                                     \
+    "<top xmlns=\"rfc2\""                                   \
+    "xmlns:xc=\"urn:ietf:params:xml:ns:netconf:base:1.0\""  \
+    "xc:operation=\"delete\">"                              \
+    "</top>"
+
 static int
 local_setup(void **state)
 {
@@ -372,11 +385,7 @@ test_merge(void **state)
     char *str;
 
     /* Send rpc editing module edit1 */
-    rpc = nc_rpc_edit(NC_DATASTORE_RUNNING, NC_RPC_EDIT_DFLTOP_MERGE,
-            NC_RPC_EDIT_TESTOPT_SET, NC_RPC_EDIT_ERROPT_ROLLBACK,
-            EDIT_1_VALID_DATA, NC_PARAMTYPE_CONST);
-    msgtype = nc_send_rpc(st->nc_sess, rpc, 1000, &msgid);
-    assert_int_equal(NC_MSG_RPC, msgtype);
+    SEND_EDIT_RPC(EDIT_1_VALID_DATA);
 
     /* Receive a reply, should succeed*/
     ASSERT_OK_REPLY;
@@ -389,11 +398,7 @@ test_merge(void **state)
     free(str);
 
     /* Send rpc editing module edit2 */
-    rpc = nc_rpc_edit(NC_DATASTORE_RUNNING, NC_RPC_EDIT_DFLTOP_MERGE,
-            NC_RPC_EDIT_TESTOPT_SET, NC_RPC_EDIT_ERROPT_ROLLBACK,
-            EDIT_2_VALID_DATA, NC_PARAMTYPE_CONST);
-    msgtype = nc_send_rpc(st->nc_sess, rpc, 1000, &msgid);
-    assert_int_equal(NC_MSG_RPC, msgtype);
+    SEND_EDIT_RPC(EDIT_2_VALID_DATA);
 
     /* Receive a reply, should succeed */
     ASSERT_OK_REPLY;
@@ -406,11 +411,7 @@ test_merge(void **state)
     free(str);
 
     /* Send invalid rpc editing module edit2 */
-    rpc = nc_rpc_edit(NC_DATASTORE_RUNNING, NC_RPC_EDIT_DFLTOP_MERGE,
-            NC_RPC_EDIT_TESTOPT_SET, NC_RPC_EDIT_ERROPT_ROLLBACK,
-            EDIT_2_INVALID_DATA_NUM, NC_PARAMTYPE_CONST);
-    msgtype = nc_send_rpc(st->nc_sess, rpc, 1000, &msgid);
-    assert_int_equal(NC_MSG_RPC, msgtype);
+    SEND_EDIT_RPC(EDIT_2_INVALID_DATA_NUM);
 
     /* Receive a reply, should fail */
     ASSERT_RPC_ERROR;
@@ -435,11 +436,7 @@ test_delete(void **state)
     free(str);
 
     /* Send rpc deleting config in module edit1 */
-    rpc = nc_rpc_edit(NC_DATASTORE_RUNNING, NC_RPC_EDIT_DFLTOP_MERGE,
-            NC_RPC_EDIT_TESTOPT_SET, NC_RPC_EDIT_ERROPT_ROLLBACK,
-            EDIT_1_DELETE, NC_PARAMTYPE_CONST);
-    msgtype = nc_send_rpc(st->nc_sess, rpc, 1000, &msgid);
-    assert_int_equal(NC_MSG_RPC, msgtype);
+    SEND_EDIT_RPC(EDIT_1_DELETE);
 
     /* Receive a reply, should suceed */
     ASSERT_OK_REPLY;
@@ -452,11 +449,7 @@ test_delete(void **state)
     free(str);
 
     /* Send rpc deleting config in module edit2 */
-    rpc = nc_rpc_edit(NC_DATASTORE_RUNNING, NC_RPC_EDIT_DFLTOP_MERGE,
-            NC_RPC_EDIT_TESTOPT_SET, NC_RPC_EDIT_ERROPT_ROLLBACK,
-            EDIT_2_DELETE, NC_PARAMTYPE_CONST);
-    msgtype = nc_send_rpc(st->nc_sess, rpc, 1000, &msgid);
-    assert_int_equal(NC_MSG_RPC, msgtype);
+    SEND_EDIT_RPC(EDIT_2_DELETE);
 
     /* Receive a reply, should succeed */
     ASSERT_OK_REPLY;
@@ -467,11 +460,7 @@ test_delete(void **state)
     ASSERT_EMPTY_CONFIG;
 
     /* Try deleting a non-existent config */
-    rpc = nc_rpc_edit(NC_DATASTORE_RUNNING, NC_RPC_EDIT_DFLTOP_MERGE,
-            NC_RPC_EDIT_TESTOPT_SET, NC_RPC_EDIT_ERROPT_ROLLBACK,
-            EDIT_1_DELETE, NC_PARAMTYPE_CONST);
-    msgtype = nc_send_rpc(st->nc_sess, rpc, 1000, &msgid);
-    assert_int_equal(NC_MSG_RPC, msgtype);
+    SEND_EDIT_RPC(EDIT_1_DELETE);
 
     /* Receive a reply, should fail */
     ASSERT_RPC_ERROR;
@@ -493,11 +482,7 @@ test_merge_advanced(void **state)
     ASSERT_EMPTY_CONFIG;
 
     /* Merge a partial config */
-    rpc = nc_rpc_edit(NC_DATASTORE_RUNNING, NC_RPC_EDIT_DFLTOP_MERGE,
-            NC_RPC_EDIT_TESTOPT_SET, NC_RPC_EDIT_ERROPT_ROLLBACK,
-            EDIT_2_PARTIAL_DATA, NC_PARAMTYPE_CONST);
-    msgtype = nc_send_rpc(st->nc_sess, rpc, 1000, &msgid);
-    assert_int_equal(NC_MSG_RPC, msgtype);
+    SEND_EDIT_RPC(EDIT_2_PARTIAL_DATA);
 
     /* Recieve a reply, should succeed */
     ASSERT_OK_REPLY;
@@ -511,11 +496,7 @@ test_merge_advanced(void **state)
     free(str);
 
     /* Merge a full config */
-    rpc = nc_rpc_edit(NC_DATASTORE_RUNNING, NC_RPC_EDIT_DFLTOP_MERGE,
-            NC_RPC_EDIT_TESTOPT_SET, NC_RPC_EDIT_ERROPT_ROLLBACK,
-            EDIT_2_VALID_DATA, NC_PARAMTYPE_CONST);
-    msgtype = nc_send_rpc(st->nc_sess, rpc, 1000, &msgid);
-    assert_int_equal(NC_MSG_RPC, msgtype);
+    SEND_EDIT_RPC(EDIT_2_VALID_DATA);
 
     /* Recieve a reply, should succeed */
     ASSERT_OK_REPLY;
@@ -529,11 +510,7 @@ test_merge_advanced(void **state)
     free(str);
 
     /* Empty the config */
-    rpc = nc_rpc_edit(NC_DATASTORE_RUNNING, NC_RPC_EDIT_DFLTOP_MERGE,
-            NC_RPC_EDIT_TESTOPT_SET, NC_RPC_EDIT_ERROPT_ROLLBACK,
-            EDIT_2_DELETE, NC_PARAMTYPE_CONST);
-    msgtype = nc_send_rpc(st->nc_sess, rpc, 1000, &msgid);
-    assert_int_equal(NC_MSG_RPC, msgtype);
+    SEND_EDIT_RPC(EDIT_2_DELETE);
 
     /* Recieve a reply, should succeed */
     ASSERT_OK_REPLY;
@@ -544,11 +521,7 @@ test_merge_advanced(void **state)
     ASSERT_EMPTY_CONFIG;
 
     /* Send rpc to merge into edit3 config */
-    rpc = nc_rpc_edit(NC_DATASTORE_RUNNING, NC_RPC_EDIT_DFLTOP_MERGE,
-            NC_RPC_EDIT_TESTOPT_SET, NC_RPC_EDIT_ERROPT_ROLLBACK,
-            EDIT_3_VALID_DATA, NC_PARAMTYPE_CONST);
-    msgtype = nc_send_rpc(st->nc_sess, rpc, 1000, &msgid);
-    assert_int_equal(NC_MSG_RPC, msgtype);
+    SEND_EDIT_RPC(EDIT_3_VALID_DATA);
 
     /* Recieve a reply, should succeed */
     ASSERT_OK_REPLY;
@@ -563,11 +536,7 @@ test_merge_advanced(void **state)
     free(str);
 
     /* Send rpc to merge alternate edit3 config */
-    rpc = nc_rpc_edit(NC_DATASTORE_RUNNING, NC_RPC_EDIT_DFLTOP_MERGE,
-            NC_RPC_EDIT_TESTOPT_SET, NC_RPC_EDIT_ERROPT_ROLLBACK,
-            EDIT_3_ALT_DATA, NC_PARAMTYPE_CONST);
-    msgtype = nc_send_rpc(st->nc_sess, rpc, 1000, &msgid);
-    assert_int_equal(NC_MSG_RPC, msgtype);
+    SEND_EDIT_RPC(EDIT_3_ALT_DATA);
 
     /* Recieve a reply, should succeed */
     ASSERT_OK_REPLY;
@@ -582,11 +551,7 @@ test_merge_advanced(void **state)
     free(str);
 
     /* Empty the config */
-    rpc = nc_rpc_edit(NC_DATASTORE_RUNNING, NC_RPC_EDIT_DFLTOP_MERGE,
-            NC_RPC_EDIT_TESTOPT_SET, NC_RPC_EDIT_ERROPT_ROLLBACK,
-            EDIT_3_DELETE, NC_PARAMTYPE_CONST);
-    msgtype = nc_send_rpc(st->nc_sess, rpc, 1000, &msgid);
-    assert_int_equal(NC_MSG_RPC, msgtype);
+    SEND_EDIT_RPC(EDIT_3_DELETE);
 
     /* Recieve a reply, should succeed */
     ASSERT_OK_REPLY;
@@ -608,11 +573,7 @@ test_replace(void **state)
     char *str;
 
     /* Send rpc to replace in an empty config, should create */
-    rpc = nc_rpc_edit(NC_DATASTORE_RUNNING, NC_RPC_EDIT_DFLTOP_MERGE,
-            NC_RPC_EDIT_TESTOPT_SET, NC_RPC_EDIT_ERROPT_ROLLBACK,
-            EDIT_3_REPLACE, NC_PARAMTYPE_CONST);
-    msgtype = nc_send_rpc(st->nc_sess, rpc, 1000, &msgid);
-    assert_int_equal(NC_MSG_RPC, msgtype);
+    SEND_EDIT_RPC(EDIT_3_REPLACE);
 
     /* Receive a reply, should succeed */
     ASSERT_OK_REPLY;
@@ -627,11 +588,7 @@ test_replace(void **state)
     free(str);
 
     /* Send rpc to replace the original config */
-    rpc = nc_rpc_edit(NC_DATASTORE_RUNNING, NC_RPC_EDIT_DFLTOP_MERGE,
-            NC_RPC_EDIT_TESTOPT_SET, NC_RPC_EDIT_ERROPT_ROLLBACK,
-            EDIT_3_ALT_REPLACE, NC_PARAMTYPE_CONST);
-    msgtype = nc_send_rpc(st->nc_sess, rpc, 1000, &msgid);
-    assert_int_equal(NC_MSG_RPC, msgtype);
+    SEND_EDIT_RPC(EDIT_3_ALT_REPLACE);
 
     /* Receive a reply, should succeed */
     ASSERT_OK_REPLY;
@@ -646,11 +603,7 @@ test_replace(void **state)
     free(str);
 
     /* Empty the config */
-    rpc = nc_rpc_edit(NC_DATASTORE_RUNNING, NC_RPC_EDIT_DFLTOP_MERGE,
-            NC_RPC_EDIT_TESTOPT_SET, NC_RPC_EDIT_ERROPT_ROLLBACK,
-            EDIT_3_ALT_DELETE, NC_PARAMTYPE_CONST);
-    msgtype = nc_send_rpc(st->nc_sess, rpc, 1000, &msgid);
-    assert_int_equal(NC_MSG_RPC, msgtype);
+    SEND_EDIT_RPC(EDIT_3_ALT_DELETE);
 
     /* Recieve a reply, should succeed */
     ASSERT_OK_REPLY;
@@ -672,11 +625,7 @@ test_create(void **state)
     char *str;
 
     /* Send rpc creating config in module edit1 */
-    rpc = nc_rpc_edit(NC_DATASTORE_RUNNING, NC_RPC_EDIT_DFLTOP_MERGE,
-            NC_RPC_EDIT_TESTOPT_SET, NC_RPC_EDIT_ERROPT_ROLLBACK,
-            EDIT_1_CREATE, NC_PARAMTYPE_CONST);
-    msgtype = nc_send_rpc(st->nc_sess, rpc, 1000, &msgid);
-    assert_int_equal(NC_MSG_RPC, msgtype);
+    SEND_EDIT_RPC(EDIT_1_CREATE);
 
     /* Receive a reply, should succeed */
     ASSERT_OK_REPLY;
@@ -689,11 +638,7 @@ test_create(void **state)
     free(str);
 
     /* Send rpc creating the same module */
-    rpc = nc_rpc_edit(NC_DATASTORE_RUNNING, NC_RPC_EDIT_DFLTOP_MERGE,
-            NC_RPC_EDIT_TESTOPT_SET, NC_RPC_EDIT_ERROPT_ROLLBACK,
-            EDIT_1_CREATE, NC_PARAMTYPE_CONST);
-    msgtype = nc_send_rpc(st->nc_sess, rpc, 1000, &msgid);
-    assert_int_equal(NC_MSG_RPC, msgtype);
+    SEND_EDIT_RPC(EDIT_1_CREATE);
 
     /* Receive a reply, should fail */
     ASSERT_RPC_ERROR;
@@ -701,11 +646,7 @@ test_create(void **state)
     FREE_TEST_VARS;
 
     /* remove to get an empty config */
-    rpc = nc_rpc_edit(NC_DATASTORE_RUNNING, NC_RPC_EDIT_DFLTOP_MERGE,
-            NC_RPC_EDIT_TESTOPT_SET, NC_RPC_EDIT_ERROPT_ROLLBACK,
-            EDIT_1_REMOVE, NC_PARAMTYPE_CONST);
-    msgtype = nc_send_rpc(st->nc_sess, rpc, 1000, &msgid);
-    assert_int_equal(NC_MSG_RPC, msgtype);
+    SEND_EDIT_RPC(EDIT_1_REMOVE);
 
     /* Receive a reply, should succeed */
     ASSERT_OK_REPLY;
@@ -727,11 +668,7 @@ test_remove(void **state)
     char *str;
 
     /* Send rpc editing module edit1 */
-    rpc = nc_rpc_edit(NC_DATASTORE_RUNNING, NC_RPC_EDIT_DFLTOP_MERGE,
-            NC_RPC_EDIT_TESTOPT_SET, NC_RPC_EDIT_ERROPT_ROLLBACK,
-            EDIT_1_VALID_DATA, NC_PARAMTYPE_CONST);
-    msgtype = nc_send_rpc(st->nc_sess, rpc, 1000, &msgid);
-    assert_int_equal(NC_MSG_RPC, msgtype);
+    SEND_EDIT_RPC(EDIT_1_VALID_DATA);
 
     /* Receive a reply, should succeed*/
     ASSERT_OK_REPLY;
@@ -744,11 +681,7 @@ test_remove(void **state)
     free(str);
 
     /* Try removing the merged config */
-    rpc = nc_rpc_edit(NC_DATASTORE_RUNNING, NC_RPC_EDIT_DFLTOP_MERGE,
-            NC_RPC_EDIT_TESTOPT_SET, NC_RPC_EDIT_ERROPT_ROLLBACK,
-            EDIT_1_REMOVE, NC_PARAMTYPE_CONST);
-    msgtype = nc_send_rpc(st->nc_sess, rpc, 1000, &msgid);
-    assert_int_equal(NC_MSG_RPC, msgtype);
+    SEND_EDIT_RPC(EDIT_1_REMOVE);
 
     /* Receive a reply, should succeed */
     ASSERT_OK_REPLY;
@@ -759,11 +692,7 @@ test_remove(void **state)
     ASSERT_EMPTY_CONFIG;
 
     /* Try removing the from empty config */
-    rpc = nc_rpc_edit(NC_DATASTORE_RUNNING, NC_RPC_EDIT_DFLTOP_MERGE,
-            NC_RPC_EDIT_TESTOPT_SET, NC_RPC_EDIT_ERROPT_ROLLBACK,
-            EDIT_1_REMOVE, NC_PARAMTYPE_CONST);
-    msgtype = nc_send_rpc(st->nc_sess, rpc, 1000, &msgid);
-    assert_int_equal(NC_MSG_RPC, msgtype);
+    SEND_EDIT_RPC(EDIT_1_REMOVE);
 
     /* Receive a reply, should succeed */
     ASSERT_OK_REPLY;
@@ -786,11 +715,7 @@ test_rfc1(void **state)
     char *str;
 
     /* Send rpc editing module rfc1 */
-    rpc = nc_rpc_edit(NC_DATASTORE_RUNNING, NC_RPC_EDIT_DFLTOP_MERGE,
-            NC_RPC_EDIT_TESTOPT_SET, NC_RPC_EDIT_ERROPT_ROLLBACK,
-            RFC1_VALID_DATA, NC_PARAMTYPE_CONST);
-    msgtype = nc_send_rpc(st->nc_sess, rpc, 1000, &msgid);
-    assert_int_equal(NC_MSG_RPC, msgtype);
+    SEND_EDIT_RPC(RFC1_VALID_DATA);
 
     /* Receive a reply, should succeed */
     ASSERT_OK_REPLY;
@@ -803,11 +728,7 @@ test_rfc1(void **state)
     free(str);
 
     /* Send rpc replacing module rfc1 */
-    rpc = nc_rpc_edit(NC_DATASTORE_RUNNING, NC_RPC_EDIT_DFLTOP_MERGE,
-            NC_RPC_EDIT_TESTOPT_SET, NC_RPC_EDIT_ERROPT_ROLLBACK,
-            RFC1_VALID_DATA2, NC_PARAMTYPE_CONST);
-    msgtype = nc_send_rpc(st->nc_sess, rpc, 1000, &msgid);
-    assert_int_equal(NC_MSG_RPC, msgtype);
+    SEND_EDIT_RPC(RFC1_VALID_DATA2);
 
     /* Receive a reply, should succeed*/
     ASSERT_OK_REPLY;
@@ -820,11 +741,7 @@ test_rfc1(void **state)
     free(str);
 
     /* Send rpc deleting config in module rfc1 */
-    rpc = nc_rpc_edit(NC_DATASTORE_RUNNING, NC_RPC_EDIT_DFLTOP_MERGE,
-            NC_RPC_EDIT_TESTOPT_SET, NC_RPC_EDIT_ERROPT_ROLLBACK,
-            RFC1_DELETE, NC_PARAMTYPE_CONST);
-    msgtype = nc_send_rpc(st->nc_sess, rpc, 1000, &msgid);
-    assert_int_equal(NC_MSG_RPC, msgtype);
+    SEND_EDIT_RPC(RFC1_DELETE);
 
     /* Receive a reply, should succeed*/
     ASSERT_OK_REPLY;
@@ -849,11 +766,7 @@ test_rfc2(void **state)
     /* Need to have some running config first */
 
     /* Send rpc editing module rfc2 */
-    rpc = nc_rpc_edit(NC_DATASTORE_RUNNING, NC_RPC_EDIT_DFLTOP_MERGE,
-            NC_RPC_EDIT_TESTOPT_SET, NC_RPC_EDIT_ERROPT_ROLLBACK,
-            RFC2_VALID_DATA, NC_PARAMTYPE_CONST);
-    msgtype = nc_send_rpc(st->nc_sess, rpc, 1000, &msgid);
-    assert_int_equal(NC_MSG_RPC, msgtype);
+    SEND_EDIT_RPC(RFC2_VALID_DATA);
 
     /* Receive a reply, should succeed*/
     ASSERT_OK_REPLY;
@@ -861,11 +774,7 @@ test_rfc2(void **state)
     FREE_TEST_VARS;
 
     /* Send another rpc editing module rfc2 */
-    rpc = nc_rpc_edit(NC_DATASTORE_RUNNING, NC_RPC_EDIT_DFLTOP_MERGE,
-            NC_RPC_EDIT_TESTOPT_SET, NC_RPC_EDIT_ERROPT_ROLLBACK,
-            RFC2_VALID_DATA2, NC_PARAMTYPE_CONST);
-    msgtype = nc_send_rpc(st->nc_sess, rpc, 1000, &msgid);
-    assert_int_equal(NC_MSG_RPC, msgtype);
+    SEND_EDIT_RPC(RFC2_VALID_DATA2);
 
     /* Receive a reply, should succeed */
     ASSERT_OK_REPLY;
@@ -873,11 +782,7 @@ test_rfc2(void **state)
     FREE_TEST_VARS;
 
     /* Send rpc deleting part of the data from module rfc2 */
-    rpc = nc_rpc_edit(NC_DATASTORE_RUNNING, NC_RPC_EDIT_DFLTOP_MERGE,
-            NC_RPC_EDIT_TESTOPT_SET, NC_RPC_EDIT_ERROPT_ROLLBACK,
-            RFC2_DELETE_DATA, NC_PARAMTYPE_CONST);
-    msgtype = nc_send_rpc(st->nc_sess, rpc, 1000, &msgid);
-    assert_int_equal(NC_MSG_RPC, msgtype);
+    SEND_EDIT_RPC(RFC2_DELETE_DATA);
 
     /* Receive a reply, should succeed */
     ASSERT_OK_REPLY;
@@ -891,11 +796,7 @@ test_rfc2(void **state)
     free(str);
 
     /* Send rpc deleting part of the data from module rfc2 */
-    rpc = nc_rpc_edit(NC_DATASTORE_RUNNING, NC_RPC_EDIT_DFLTOP_MERGE,
-            NC_RPC_EDIT_TESTOPT_SET, NC_RPC_EDIT_ERROPT_ROLLBACK,
-            RFC2_DELETE_REST, NC_PARAMTYPE_CONST);
-    msgtype = nc_send_rpc(st->nc_sess, rpc, 1000, &msgid);
-    assert_int_equal(NC_MSG_RPC, msgtype);
+    SEND_EDIT_RPC(RFC2_DELETE_REST);
 
     /* Receive a reply, should succeed */
     ASSERT_OK_REPLY;
@@ -909,6 +810,7 @@ test_rfc2(void **state)
 static void
 test_filter(void **state)
 {
+    /* TODO: Move since this is not edit? */
     struct np_test *st = *state;
     struct nc_rpc *rpc;
     NC_MSG_TYPE msgtype;
@@ -917,18 +819,14 @@ test_filter(void **state)
     char *str;
 
     /* Send rpc editing rfc2 */
-    rpc = nc_rpc_edit(NC_DATASTORE_RUNNING, NC_RPC_EDIT_DFLTOP_MERGE,
-            NC_RPC_EDIT_TESTOPT_SET, NC_RPC_EDIT_ERROPT_ROLLBACK,
-            RFC2_COMPLEX_DATA, NC_PARAMTYPE_CONST);
-    msgtype = nc_send_rpc(st->nc_sess, rpc, 1000, &msgid);
-    assert_int_equal(NC_MSG_RPC, msgtype);
+    SEND_EDIT_RPC(RFC2_COMPLEX_DATA);
 
     /* Receive a reply, should succeed */
     ASSERT_OK_REPLY;
 
     FREE_TEST_VARS;
 
-    /* TODO: Add more */
+    /* TODO: Add more modules to test filter on */
 
     /* Filter by xpath */
     GET_CONFIG_FILTER("/top/protocols/ospf/area[1]");
@@ -945,7 +843,16 @@ test_filter(void **state)
     assert_string_equal(str, RFC2_FILTER_AREA1);
     free(str);
 
-    /* TODO: remove the config */
+    /* Send rpc deleting part of the data from module rfc2 */
+    SEND_EDIT_RPC(RFC2_DELETE_ALL);
+
+    /* Receive a reply, should succeed */
+    ASSERT_OK_REPLY;
+
+    FREE_TEST_VARS;
+
+    /* Check if empty config */
+    ASSERT_EMPTY_CONFIG;
 }
 
 int
