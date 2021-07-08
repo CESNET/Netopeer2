@@ -73,8 +73,6 @@ local_teardown(void **state)
 
 /* TODO: Add more modules to test filter on */
 
-/* TODO: Test subpath filtering */
-
 static void
 test_xpath_basic(void **state)
 {
@@ -180,11 +178,118 @@ test_xpath_basic(void **state)
     ASSERT_EMPTY_CONFIG(st);
 }
 
+static void
+test_subtree_basic(void **state)
+{
+    struct np_test *st = *state;
+    const char *RFC2_COMPLEX_DATA, *RFC2_DELETE_ALL, *RFC2_FILTER_AREA1,
+            *subtree1;
+
+    RFC2_COMPLEX_DATA =
+            "<top xmlns=\"rfc2\">"                      \
+            "  <protocols>"                             \
+            "    <ospf>"                                \
+            "      <area>"                              \
+            "        <name>0.0.0.0</name>"              \
+            "        <interfaces>"                      \
+            "          <interface>"                     \
+            "            <name>192.0.2.1</name>"        \
+            "          </interface>"                    \
+            "          <interface>"                     \
+            "            <name>192.0.2.4</name>"        \
+            "          </interface>"                    \
+            "        </interfaces>"                     \
+            "      </area>"                             \
+            "      <area>"                              \
+            "        <name>192.168.0.0</name>"          \
+            "        <interfaces>"                      \
+            "          <interface>"                     \
+            "            <name>192.168.0.1</name>"      \
+            "          </interface>"                    \
+            "          <interface>"                     \
+            "            <name>192.168.0.12</name>"     \
+            "          </interface>"                    \
+            "          <interface>"                     \
+            "            <name>192.168.0.25</name>"     \
+            "          </interface>"                    \
+            "        </interfaces>"                     \
+            "      </area>"                             \
+            "    </ospf>"                               \
+            "  </protocols>"                            \
+            "</top>";
+
+    /* Send rpc editing rfc2 */
+    SEND_EDIT_RPC(st, RFC2_COMPLEX_DATA);
+
+    /* Receive a reply, should succeed */
+    ASSERT_OK_REPLY(st);
+
+    FREE_TEST_VARS(st);
+
+    subtree1 =
+            "<top xmlns=\"rfc2\">\n"              \
+            "  <protocols>\n"                     \
+            "    <ospf>\n"                        \
+            "      <area>\n"                      \
+            "        <name>0.0.0.0</name>\n"      \
+            "      </area>\n"                     \
+            "    </ospf>\n"                       \
+            "  </protocols>\n"                    \
+            "</top>\n";
+
+    GET_CONFIG_FILTER(st, subtree1);
+
+    RFC2_FILTER_AREA1 =
+            "<get-config xmlns=\"urn:ietf:params:xml:ns:netconf:base:1.0\">\n" \
+            "  <data>\n"                                                       \
+            "    <top xmlns=\"rfc2\">\n"                                       \
+            "      <protocols>\n"                                              \
+            "        <ospf>\n"                                                 \
+            "          <area>\n"                                               \
+            "            <name>0.0.0.0</name>\n"                               \
+            "            <interfaces>\n"                                       \
+            "              <interface>\n"                                      \
+            "                <name>192.0.2.1</name>\n"                         \
+            "              </interface>\n"                                     \
+            "              <interface>\n"                                      \
+            "                <name>192.0.2.4</name>\n"                         \
+            "              </interface>\n"                                     \
+            "            </interfaces>\n"                                      \
+            "          </area>\n"                                              \
+            "        </ospf>\n"                                                \
+            "      </protocols>\n"                                             \
+            "    </top>\n"                                                     \
+            "  </data>\n"                                                      \
+            "</get-config>\n";
+
+    assert_string_equal(st->str, RFC2_FILTER_AREA1);
+
+    FREE_TEST_VARS(st);
+
+    RFC2_DELETE_ALL =
+            "<top xmlns=\"rfc2\""                                   \
+            "xmlns:xc=\"urn:ietf:params:xml:ns:netconf:base:1.0\""  \
+            "xc:operation=\"delete\">"                              \
+            "</top>";
+
+    /* Send rpc deleting part of the data from module rfc2 */
+    SEND_EDIT_RPC(st, RFC2_DELETE_ALL);
+
+    /* Receive a reply, should succeed */
+    ASSERT_OK_REPLY(st);
+
+    FREE_TEST_VARS(st);
+
+    /* Check if empty config */
+    ASSERT_EMPTY_CONFIG(st);
+}
+
 int
 main(void)
 {
     const struct CMUnitTest tests[] = {
         cmocka_unit_test(test_xpath_basic),
+        cmocka_unit_test(test_subtree_basic),
     };
 
     nc_verbosity(NC_VERB_WARNING);
