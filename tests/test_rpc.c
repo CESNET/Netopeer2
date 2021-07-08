@@ -119,52 +119,47 @@ static void
 test_lock(void **state)
 {
     struct np_test *st = *state;
-    struct nc_rpc *rpc;
-    NC_MSG_TYPE msgtype;
-    uint64_t msgid;
-    struct lyd_node *envp, *op;
-    char *str, *str2;
+    char *str2;
 
     /* lock from first session */
-    rpc = nc_rpc_lock(NC_DATASTORE_RUNNING);
-    assert_non_null(rpc);
+    st->rpc = nc_rpc_lock(NC_DATASTORE_RUNNING);
+    assert_non_null(st->rpc);
 
     /* send request */
-    msgtype = nc_send_rpc(st->nc_sess, rpc, 1000, &msgid);
-    assert_int_equal(msgtype, NC_MSG_RPC);
+    st->msgtype = nc_send_rpc(st->nc_sess, st->rpc, 1000, &st->msgid);
+    assert_int_equal(st->msgtype, NC_MSG_RPC);
 
     /* receive reply, should succeed */
-    ASSERT_OK_REPLY;
+    ASSERT_OK_REPLY(st);
 
-    lyd_free_tree(envp);
+    lyd_free_tree(st->envp);
 
     /* request to lock from another session should fail when lock already */
-    msgtype = nc_send_rpc(st->nc_sess2, rpc, 1000, &msgid);
-    assert_int_equal(msgtype, NC_MSG_RPC);
+    st->msgtype = nc_send_rpc(st->nc_sess2, st->rpc, 1000, &st->msgid);
+    assert_int_equal(st->msgtype, NC_MSG_RPC);
 
     /* recieve reply, should yield error */
-    ASSERT_RPC_ERROR_SESS2;
-    assert_int_equal(LY_SUCCESS, lyd_print_mem(&str, envp, LYD_XML, 0));
+    ASSERT_RPC_ERROR_SESS2(st);
+    assert_int_equal(LY_SUCCESS, lyd_print_mem(&st->str, st->envp, LYD_XML, 0));
 
-    assert_int_not_equal(-1, asprintf(&str2, LOCK_FAIL_TEMPLATE, msgid,
+    assert_int_not_equal(-1, asprintf(&str2, LOCK_FAIL_TEMPLATE, st->msgid,
             nc_session_get_id(st->nc_sess)));
 
     /* error expected */
-    assert_string_equal(str, str2);
-    free(str);
+    assert_string_equal(st->str, str2);
     free(str2);
 
-    FREE_TEST_VARS;
+    FREE_TEST_VARS(st);
 
     /* unlock RPC */
-    rpc = nc_rpc_unlock(NC_DATASTORE_RUNNING);
+    st->rpc = nc_rpc_unlock(NC_DATASTORE_RUNNING);
 
-    msgtype = nc_send_rpc(st->nc_sess, rpc, 1000, &msgid);
-    assert_int_equal(msgtype, NC_MSG_RPC);
+    st->msgtype = nc_send_rpc(st->nc_sess, st->rpc, 1000, &st->msgid);
+    assert_int_equal(st->msgtype, NC_MSG_RPC);
 
-    ASSERT_OK_REPLY;
+    ASSERT_OK_REPLY(st);
 
-    FREE_TEST_VARS;
+    FREE_TEST_VARS(st);
     /* TODO: check if lock prevents changes */
 }
 
@@ -172,97 +167,84 @@ static void
 test_unlock(void **state)
 {
     struct np_test *st = *state;
-    struct nc_rpc *rpc;
-    NC_MSG_TYPE msgtype;
-    uint64_t msgid;
-    struct lyd_node *envp, *op;
-    char *str, *str2;
+    char *str2;
 
     /* Simple locking checked in previous tests */
 
     /* Lock by a different session */
-    rpc = nc_rpc_lock(NC_DATASTORE_RUNNING);
-    msgtype = nc_send_rpc(st->nc_sess2, rpc, 1000, &msgid);
-    assert_int_equal(msgtype, NC_MSG_RPC);
+    st->rpc = nc_rpc_lock(NC_DATASTORE_RUNNING);
+    st->msgtype = nc_send_rpc(st->nc_sess2, st->rpc, 1000, &st->msgid);
+    assert_int_equal(st->msgtype, NC_MSG_RPC);
 
     /* receive reply */
-    ASSERT_OK_REPLY_SESS2;
+    ASSERT_OK_REPLY_SESS2(st);
 
-    FREE_TEST_VARS;
+    FREE_TEST_VARS(st);
 
     /* Try unlocking a lock by a different session */
-    rpc = nc_rpc_unlock(NC_DATASTORE_RUNNING);
+    st->rpc = nc_rpc_unlock(NC_DATASTORE_RUNNING);
 
-    msgtype = nc_send_rpc(st->nc_sess, rpc, 1000, &msgid);
-    assert_int_equal(msgtype, NC_MSG_RPC);
+    st->msgtype = nc_send_rpc(st->nc_sess, st->rpc, 1000, &st->msgid);
+    assert_int_equal(st->msgtype, NC_MSG_RPC);
 
     /* recieve reply, should yield error */
-    ASSERT_RPC_ERROR;
-    assert_int_equal(LY_SUCCESS, lyd_print_mem(&str, envp, LYD_XML, 0));
+    ASSERT_RPC_ERROR(st);
+    assert_int_equal(LY_SUCCESS, lyd_print_mem(&st->str, st->envp, LYD_XML, 0));
 
     /* error expected */
-    assert_int_not_equal(-1, asprintf(&str2, LOCK_FAIL_TEMPLATE, msgid,
+    assert_int_not_equal(-1, asprintf(&str2, LOCK_FAIL_TEMPLATE, st->msgid,
             nc_session_get_id(st->nc_sess2)));
-    assert_string_equal(str, str2);
-    free(str);
+    assert_string_equal(st->str, str2);
     free(str2);
 
-    FREE_TEST_VARS;
+    FREE_TEST_VARS(st);
 
     /* Try unlocking the original session, should succeed */
-    rpc = nc_rpc_unlock(NC_DATASTORE_RUNNING);
+    st->rpc = nc_rpc_unlock(NC_DATASTORE_RUNNING);
 
-    msgtype = nc_send_rpc(st->nc_sess2, rpc, 1000, &msgid);
-    assert_int_equal(NC_MSG_RPC, msgtype);
+    st->msgtype = nc_send_rpc(st->nc_sess2, st->rpc, 1000, &st->msgid);
+    assert_int_equal(NC_MSG_RPC, st->msgtype);
 
     /* recieve reply, should succeed */
-    ASSERT_OK_REPLY_SESS2;
+    ASSERT_OK_REPLY_SESS2(st);
 
-    FREE_TEST_VARS;
+    FREE_TEST_VARS(st);
 }
 
 static void
 test_get(void **state)
 {
     struct np_test *st = *state;
-    struct nc_rpc *rpc;
-    NC_MSG_TYPE msgtype;
-    uint64_t msgid;
-    struct lyd_node *envp, *op;
 
     /* Try to get all */
-    rpc = nc_rpc_get(NULL, NC_WD_ALL, NC_PARAMTYPE_CONST);
-    msgtype = nc_send_rpc(st->nc_sess, rpc, 1000, &msgid);
-    assert_int_equal(NC_MSG_RPC, msgtype);
+    st->rpc = nc_rpc_get(NULL, NC_WD_ALL, NC_PARAMTYPE_CONST);
+    st->msgtype = nc_send_rpc(st->nc_sess, st->rpc, 1000, &st->msgid);
+    assert_int_equal(NC_MSG_RPC, st->msgtype);
 
     /* recieve reply, should succeed */
-    msgtype = nc_recv_reply(st->nc_sess, rpc, msgid, 2000, &envp, &op);
-    assert_int_equal(msgtype, NC_MSG_REPLY);
-    assert_non_null(op);
-    assert_non_null(envp);
+    st->msgtype = nc_recv_reply(st->nc_sess, st->rpc, st->msgid, 2000,
+            &st->envp, &st->op);
+    assert_int_equal(st->msgtype, NC_MSG_REPLY);
+    assert_non_null(st->op);
+    assert_non_null(st->envp);
 
-    FREE_TEST_VARS;
-    /* TODO: test if filter works */
+    FREE_TEST_VARS(st);
 }
 
 static void
 test_kill(void **state)
 {
     struct np_test *st = *state;
-    struct nc_rpc *rpc;
-    NC_MSG_TYPE msgtype;
-    uint64_t msgid;
-    struct lyd_node *envp, *op;
 
     /* Try to close a session */
-    rpc = nc_rpc_kill(nc_session_get_id(st->nc_sess));
-    msgtype = nc_send_rpc(st->nc_sess, rpc, 1000, &msgid);
-    assert_int_equal(NC_MSG_RPC, msgtype);
+    st->rpc = nc_rpc_kill(nc_session_get_id(st->nc_sess));
+    st->msgtype = nc_send_rpc(st->nc_sess, st->rpc, 1000, &st->msgid);
+    assert_int_equal(NC_MSG_RPC, st->msgtype);
 
     /* recieve reply, should fail since wrong permissions */
-    ASSERT_RPC_ERROR;
+    ASSERT_RPC_ERROR(st);
 
-    FREE_TEST_VARS;
+    FREE_TEST_VARS(st);
     /* TODO: Check error message, would depend on current user */
     /* TODO: NACM tests */
 }
@@ -271,20 +253,16 @@ static void
 test_commit(void **state)
 {
     struct np_test *st = *state;
-    struct nc_rpc *rpc;
-    NC_MSG_TYPE msgtype;
-    uint64_t msgid;
-    struct lyd_node *envp, *op;
 
     /* try commiting config, there is no candidate */
-    rpc = nc_rpc_commit(0, 0, NULL, NULL, NC_PARAMTYPE_CONST);
-    msgtype = nc_send_rpc(st->nc_sess, rpc, 1000, &msgid);
-    assert_int_equal(NC_MSG_RPC, msgtype);
+    st->rpc = nc_rpc_commit(0, 0, NULL, NULL, NC_PARAMTYPE_CONST);
+    st->msgtype = nc_send_rpc(st->nc_sess, st->rpc, 1000, &st->msgid);
+    assert_int_equal(NC_MSG_RPC, st->msgtype);
 
     /* recieve a reply, should succeed */
-    ASSERT_OK_REPLY;
+    ASSERT_OK_REPLY(st);
 
-    FREE_TEST_VARS;
+    FREE_TEST_VARS(st);
     /* TODO: test funcionality */
 }
 
@@ -292,20 +270,16 @@ static void
 test_discard(void **state)
 {
     struct np_test *st = *state;
-    struct nc_rpc *rpc;
-    NC_MSG_TYPE msgtype;
-    uint64_t msgid;
-    struct lyd_node *envp, *op;
 
     /* Try to close a session */
-    rpc = nc_rpc_discard();
-    msgtype = nc_send_rpc(st->nc_sess, rpc, 1000, &msgid);
-    assert_int_equal(NC_MSG_RPC, msgtype);
+    st->rpc = nc_rpc_discard();
+    st->msgtype = nc_send_rpc(st->nc_sess, st->rpc, 1000, &st->msgid);
+    assert_int_equal(NC_MSG_RPC, st->msgtype);
 
     /* recieve reply, should fail since wrong permissions */
-    ASSERT_OK_REPLY;
+    ASSERT_OK_REPLY(st);
 
-    FREE_TEST_VARS;
+    FREE_TEST_VARS(st);
     /* TODO: test funcionality */
 }
 
@@ -313,47 +287,40 @@ static void
 test_getconfig(void **state)
 {
     struct np_test *st = *state;
-    struct nc_rpc *rpc;
-    NC_MSG_TYPE msgtype;
-    uint64_t msgid;
-    struct lyd_node *envp, *op;
 
     /* try getting config */
-    rpc = nc_rpc_getconfig(NC_DATASTORE_RUNNING, NULL,
+    st->rpc = nc_rpc_getconfig(NC_DATASTORE_RUNNING, NULL,
             NC_WD_ALL, NC_PARAMTYPE_CONST);
-    msgtype = nc_send_rpc(st->nc_sess, rpc, 1000, &msgid);
-    assert_int_equal(NC_MSG_RPC, msgtype);
+    st->msgtype = nc_send_rpc(st->nc_sess, st->rpc, 1000, &st->msgid);
+    assert_int_equal(NC_MSG_RPC, st->msgtype);
 
     /* recieve reply, should get configuration in op*/
-    msgtype = nc_recv_reply(st->nc_sess, rpc, msgid, 2000, &envp, &op);
-    assert_int_equal(msgtype, NC_MSG_REPLY);
-    assert_non_null(op);
-    assert_non_null(envp);
-    assert_string_equal(LYD_NAME(lyd_child(op)), "data");
+    st->msgtype = nc_recv_reply(st->nc_sess, st->rpc, st->msgid, 2000,
+            &st->envp, &st->op);
+    assert_int_equal(st->msgtype, NC_MSG_REPLY);
+    assert_non_null(st->op);
+    assert_non_null(st->envp);
+    assert_string_equal(LYD_NAME(lyd_child(st->op)), "data");
 
     /* TODO: Test the configuration contents*/
 
-    FREE_TEST_VARS;
+    FREE_TEST_VARS(st);
 }
 
 static void
 test_validate(void **state)
 {
     struct np_test *st = *state;
-    struct nc_rpc *rpc;
-    NC_MSG_TYPE msgtype;
-    uint64_t msgid;
-    struct lyd_node *envp, *op;
 
     /* try validating config of the running datastore */
-    rpc = nc_rpc_validate(NC_DATASTORE_RUNNING, NULL, NC_PARAMTYPE_CONST);
-    msgtype = nc_send_rpc(st->nc_sess, rpc, 1000, &msgid);
-    assert_int_equal(NC_MSG_RPC, msgtype);
+    st->rpc = nc_rpc_validate(NC_DATASTORE_RUNNING, NULL, NC_PARAMTYPE_CONST);
+    st->msgtype = nc_send_rpc(st->nc_sess, st->rpc, 1000, &st->msgid);
+    assert_int_equal(NC_MSG_RPC, st->msgtype);
 
     /* recieve reply, should succeed */
-    ASSERT_OK_REPLY;
+    ASSERT_OK_REPLY(st);
 
-    FREE_TEST_VARS;
+    FREE_TEST_VARS(st);
     /* TODO: Test for url or config instead of datastore */
     /* TODO: Test for valid and invalid configurations */
 }
@@ -362,16 +329,13 @@ static void
 test_unsuported(void **state)
 {
     struct np_test *st = *state;
-    struct nc_rpc *rpc;
-    NC_MSG_TYPE msgtype;
-    uint64_t msgid;
 
     /* Testing RPCs unsupported by netopeer, all should fail */
-    rpc = nc_rpc_cancel(NULL, NC_PARAMTYPE_CONST);
-    msgtype = nc_send_rpc(st->nc_sess, rpc, 1000, &msgid);
-    assert_int_equal(NC_MSG_ERROR, msgtype);
+    st->rpc = nc_rpc_cancel(NULL, NC_PARAMTYPE_CONST);
+    st->msgtype = nc_send_rpc(st->nc_sess, st->rpc, 1000, &st->msgid);
+    assert_int_equal(NC_MSG_ERROR, st->msgtype);
 
-    nc_rpc_free(rpc);
+    nc_rpc_free(st->rpc);
 }
 
 int

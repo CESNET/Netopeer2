@@ -37,40 +37,54 @@
     file[strlen(file) - 2] = '\0'; \
     setenv_rv = setup_setenv_sysrepo(strrchr(file, '/') + 1);
 
-#define FREE_TEST_VARS \
-  nc_rpc_free(rpc); \
-  lyd_free_tree(envp); \
-  lyd_free_tree(op);
+#define FREE_TEST_VARS(state)                   \
+    nc_rpc_free(state->rpc);                    \
+    lyd_free_tree(state->envp);                 \
+    lyd_free_tree(state->op);                   \
+    if(st->str)                                 \
+    {                                           \
+        free(st->str);                          \
+    }                                           \
+    st->str = NULL;
 
-#define ASSERT_OK_REPLY \
-    msgtype = nc_recv_reply(st->nc_sess, rpc, msgid, 2000, &envp, &op); \
-    assert_int_equal(msgtype, NC_MSG_REPLY); \
-    assert_null(op); \
-    assert_string_equal(LYD_NAME(lyd_child(envp)), "ok");
+#define ASSERT_OK_REPLY(state)                                                 \
+    state->msgtype = nc_recv_reply(state->nc_sess, state->rpc, state->msgid,   \
+                                   2000, &state->envp, &state->op);            \
+    assert_int_equal(state->msgtype, NC_MSG_REPLY);                            \
+    assert_null(state->op);                                                    \
+    assert_string_equal(LYD_NAME(lyd_child(state->envp)), "ok");
 
-#define ASSERT_OK_REPLY_SESS2 \
-    msgtype = nc_recv_reply(st->nc_sess2, rpc, msgid, 2000, &envp, &op); \
-    assert_int_equal(msgtype, NC_MSG_REPLY); \
-    assert_null(op); \
-    assert_string_equal(LYD_NAME(lyd_child(envp)), "ok");
+#define ASSERT_OK_REPLY_SESS2(state)                                           \
+    state->msgtype = nc_recv_reply(state->nc_sess2, state->rpc, state->msgid,  \
+                                   2000, &state->envp, &state->op);            \
+    assert_int_equal(state->msgtype, NC_MSG_REPLY);                            \
+    assert_null(state->op);                                                    \
+    assert_string_equal(LYD_NAME(lyd_child(state->envp)), "ok");
 
-#define ASSERT_RPC_ERROR \
-    msgtype = nc_recv_reply(st->nc_sess, rpc, msgid, 2000, &envp, &op); \
-    assert_int_equal(msgtype, NC_MSG_REPLY); \
-    assert_null(op); \
-    assert_string_equal(LYD_NAME(lyd_child(envp)), "rpc-error");
+#define ASSERT_RPC_ERROR(state)                                                \
+    state->msgtype = nc_recv_reply(state->nc_sess, state->rpc, state->msgid,   \
+                                   2000, &state->envp, &state->op);            \
+    assert_int_equal(state->msgtype, NC_MSG_REPLY);                            \
+    assert_null(state->op);                                                    \
+    assert_string_equal(LYD_NAME(lyd_child(state->envp)), "rpc-error");
 
-#define ASSERT_RPC_ERROR_SESS2 \
-    msgtype = nc_recv_reply(st->nc_sess2, rpc, msgid, 2000, &envp, &op); \
-    assert_int_equal(msgtype, NC_MSG_REPLY); \
-    assert_null(op); \
-    assert_string_equal(LYD_NAME(lyd_child(envp)), "rpc-error");
+#define ASSERT_RPC_ERROR_SESS2(state)                                          \
+    state->msgtype = nc_recv_reply(state->nc_sess2, state->rpc, state->msgid,  \
+                                   2000, &state->envp, &state->op);            \
+    assert_int_equal(state->msgtype, NC_MSG_REPLY);                            \
+    assert_null(state->op);                                                    \
+    assert_string_equal(LYD_NAME(lyd_child(state->envp)), "rpc-error");
 
 /* test state structure */
 struct np_test {
     pid_t server_pid;
     struct nc_session *nc_sess;
     struct nc_session *nc_sess2;
+    struct nc_rpc *rpc;
+    NC_MSG_TYPE msgtype;
+    uint64_t msgid;
+    struct lyd_node *envp, *op;
+    char *str;
 };
 
 int np_glob_setup_np2(void **state);

@@ -38,37 +38,41 @@
 
 /* TODO: Move some macros to np_test.h? */
 
-#define GET_CONFIG_FILTER(filter)                                       \
-    rpc = nc_rpc_getconfig(NC_DATASTORE_RUNNING, filter,                \
-                           NC_WD_ALL, NC_PARAMTYPE_CONST);              \
-    msgtype = nc_send_rpc(st->nc_sess, rpc, 1000, &msgid);              \
-    assert_int_equal(NC_MSG_RPC, msgtype);                              \
-    msgtype = nc_recv_reply(st->nc_sess, rpc, msgid, 2000, &envp, &op); \
-    assert_int_equal(msgtype, NC_MSG_REPLY);                            \
-    assert_non_null(op);                                                \
-    assert_non_null(envp);                                              \
-    assert_string_equal(LYD_NAME(lyd_child(op)), "data");               \
-    assert_int_equal(LY_SUCCESS, lyd_print_mem(&str, op, LYD_XML, 0));  \
-    FREE_TEST_VARS;
+#define GET_CONFIG_FILTER(state, filter)                                    \
+    state->rpc = nc_rpc_getconfig(NC_DATASTORE_RUNNING, filter,             \
+                                  NC_WD_ALL, NC_PARAMTYPE_CONST);           \
+    state->msgtype = nc_send_rpc(st->nc_sess, state->rpc,                   \
+                                 1000, &state->msgid);                      \
+    assert_int_equal(NC_MSG_RPC, state->msgtype);                           \
+    state->msgtype = nc_recv_reply(st->nc_sess, state->rpc, state->msgid,   \
+                                   2000, &state->envp, &state->op);         \
+    assert_int_equal(state->msgtype, NC_MSG_REPLY);                         \
+    assert_non_null(state->op);                                             \
+    assert_non_null(state->envp);                                           \
+    assert_string_equal(LYD_NAME(lyd_child(state->op)), "data");            \
+    assert_int_equal(LY_SUCCESS,                                            \
+                     lyd_print_mem(&state->str, state->op, LYD_XML, 0));
 
-#define GET_CONFIG GET_CONFIG_FILTER(NULL);
+#define GET_CONFIG(state) GET_CONFIG_FILTER(state, NULL);
 
-#define SEND_EDIT_RPC(module)                                               \
-    rpc = nc_rpc_edit(NC_DATASTORE_RUNNING, NC_RPC_EDIT_DFLTOP_MERGE,       \
-                      NC_RPC_EDIT_TESTOPT_SET, NC_RPC_EDIT_ERROPT_ROLLBACK, \
-                      module , NC_PARAMTYPE_CONST);                         \
-    msgtype = nc_send_rpc(st->nc_sess, rpc, 1000, &msgid);                  \
-    assert_int_equal(NC_MSG_RPC, msgtype);
+#define SEND_EDIT_RPC(state, module)                                           \
+    state->rpc = nc_rpc_edit(NC_DATASTORE_RUNNING, NC_RPC_EDIT_DFLTOP_MERGE,   \
+                             NC_RPC_EDIT_TESTOPT_SET,                          \
+                             NC_RPC_EDIT_ERROPT_ROLLBACK, module,              \
+                             NC_PARAMTYPE_CONST);                              \
+    state->msgtype = nc_send_rpc(st->nc_sess, state->rpc,                      \
+                                 1000, &state->msgid);                         \
+    assert_int_equal(NC_MSG_RPC, state->msgtype);
 
 #define EMPTY_GETCONFIG                                                 \
     "<get-config xmlns=\"urn:ietf:params:xml:ns:netconf:base:1.0\">\n"  \
     "  <data/>\n"                                                       \
     "</get-config>\n"
 
-#define ASSERT_EMPTY_CONFIG                     \
-    GET_CONFIG;                                 \
-    assert_string_equal(str, EMPTY_GETCONFIG);  \
-    free(str);
+#define ASSERT_EMPTY_CONFIG(state)                      \
+    GET_CONFIG(state);                                  \
+    assert_string_equal(state->str, EMPTY_GETCONFIG);   \
+    FREE_TEST_VARS(state);
 
 #define EDIT_1_VALID_DATA "<first xmlns=\"ed1\">TestFirst</first>"
 
@@ -378,329 +382,299 @@ static void
 test_merge(void **state)
 {
     struct np_test *st = *state;
-    struct nc_rpc *rpc;
-    NC_MSG_TYPE msgtype;
-    uint64_t msgid;
-    struct lyd_node *envp, *op;
-    char *str;
 
     /* Send rpc editing module edit1 */
-    SEND_EDIT_RPC(EDIT_1_VALID_DATA);
+    SEND_EDIT_RPC(st, EDIT_1_VALID_DATA);
 
     /* Receive a reply, should succeed*/
-    ASSERT_OK_REPLY;
+    ASSERT_OK_REPLY(st);
 
-    FREE_TEST_VARS;
+    FREE_TEST_VARS(st);
 
     /* Check if added to config */
-    GET_CONFIG;
-    assert_non_null(strstr(str, "TestFirst"));
-    free(str);
+    GET_CONFIG(st);
+    assert_non_null(strstr(st->str, "TestFirst"));
+    FREE_TEST_VARS(st);
 
     /* Send rpc editing module edit2 */
-    SEND_EDIT_RPC(EDIT_2_VALID_DATA);
+    SEND_EDIT_RPC(st, EDIT_2_VALID_DATA);
 
     /* Receive a reply, should succeed */
-    ASSERT_OK_REPLY;
+    ASSERT_OK_REPLY(st);
 
-    FREE_TEST_VARS;
+    FREE_TEST_VARS(st);
 
     /* Check if added to config */
-    GET_CONFIG;
-    assert_non_null(strstr(str, "TestSecond"));
-    free(str);
+    GET_CONFIG(st);
+    assert_non_null(strstr(st->str, "TestSecond"));
+    FREE_TEST_VARS(st);
 
     /* Send invalid rpc editing module edit2 */
-    SEND_EDIT_RPC(EDIT_2_INVALID_DATA_NUM);
+    SEND_EDIT_RPC(st, EDIT_2_INVALID_DATA_NUM);
 
     /* Receive a reply, should fail */
-    ASSERT_RPC_ERROR;
+    ASSERT_RPC_ERROR(st);
 
-    FREE_TEST_VARS;
+    FREE_TEST_VARS(st);
 }
 
 static void
 test_delete(void **state)
 {
     struct np_test *st = *state;
-    struct nc_rpc *rpc;
-    NC_MSG_TYPE msgtype;
-    uint64_t msgid;
-    struct lyd_node *envp, *op;
-    char *str;
 
     /* Check if the config for both is present */
-    GET_CONFIG;
-    assert_non_null(strstr(str, "TestFirst"));
-    assert_non_null(strstr(str, "TestSecond"));
-    free(str);
+    GET_CONFIG(st);
+    assert_non_null(strstr(st->str, "TestFirst"));
+    assert_non_null(strstr(st->str, "TestSecond"));
+    FREE_TEST_VARS(st);
 
     /* Send rpc deleting config in module edit1 */
-    SEND_EDIT_RPC(EDIT_1_DELETE);
+    SEND_EDIT_RPC(st, EDIT_1_DELETE);
 
     /* Receive a reply, should suceed */
-    ASSERT_OK_REPLY;
+    ASSERT_OK_REPLY(st);
 
-    FREE_TEST_VARS;
+    FREE_TEST_VARS(st);
 
     /* Check if the config was deleted */
-    GET_CONFIG;
-    assert_null(strstr(str, "TestFirst"));
-    free(str);
+    GET_CONFIG(st);
+    assert_null(strstr(st->str, "TestFirst"));
+    FREE_TEST_VARS(st);
 
     /* Send rpc deleting config in module edit2 */
-    SEND_EDIT_RPC(EDIT_2_DELETE);
+    SEND_EDIT_RPC(st, EDIT_2_DELETE);
 
     /* Receive a reply, should succeed */
-    ASSERT_OK_REPLY;
+    ASSERT_OK_REPLY(st);
 
-    FREE_TEST_VARS;
+    FREE_TEST_VARS(st);
 
     /* Check if the config was deleted */
-    ASSERT_EMPTY_CONFIG;
+    ASSERT_EMPTY_CONFIG(st);
 
     /* Try deleting a non-existent config */
-    SEND_EDIT_RPC(EDIT_1_DELETE);
+    SEND_EDIT_RPC(st, EDIT_1_DELETE);
 
     /* Receive a reply, should fail */
-    ASSERT_RPC_ERROR;
+    ASSERT_RPC_ERROR(st);
 
-    FREE_TEST_VARS;
+    FREE_TEST_VARS(st);
 }
 
 static void
 test_merge_advanced(void **state)
 {
     struct np_test *st = *state;
-    struct nc_rpc *rpc;
-    NC_MSG_TYPE msgtype;
-    uint64_t msgid;
-    struct lyd_node *envp, *op;
-    char *str;
 
     /* Check if config empty */
-    ASSERT_EMPTY_CONFIG;
+    ASSERT_EMPTY_CONFIG(st);
 
     /* Merge a partial config */
-    SEND_EDIT_RPC(EDIT_2_PARTIAL_DATA);
+    SEND_EDIT_RPC(st, EDIT_2_PARTIAL_DATA);
 
     /* Recieve a reply, should succeed */
-    ASSERT_OK_REPLY;
+    ASSERT_OK_REPLY(st);
 
-    FREE_TEST_VARS;
+    FREE_TEST_VARS(st);
 
     /* Check if merged*/
-    GET_CONFIG;
-    assert_non_null(strstr(str, "TestSecond"));
-    assert_null(strstr(str, "123"));
-    free(str);
+    GET_CONFIG(st);
+    assert_non_null(strstr(st->str, "TestSecond"));
+    assert_null(strstr(st->str, "123"));
+    FREE_TEST_VARS(st);
 
     /* Merge a full config */
-    SEND_EDIT_RPC(EDIT_2_VALID_DATA);
+    SEND_EDIT_RPC(st, EDIT_2_VALID_DATA);
 
     /* Recieve a reply, should succeed */
-    ASSERT_OK_REPLY;
+    ASSERT_OK_REPLY(st);
 
-    FREE_TEST_VARS;
+    FREE_TEST_VARS(st);
 
     /* Check if merged */
-    GET_CONFIG;
-    assert_non_null(strstr(str, "TestSecond"));
-    assert_non_null(strstr(str, "123"));
-    free(str);
+    GET_CONFIG(st);
+    assert_non_null(strstr(st->str, "TestSecond"));
+    assert_non_null(strstr(st->str, "123"));
+    FREE_TEST_VARS(st);
 
     /* Empty the config */
-    SEND_EDIT_RPC(EDIT_2_DELETE);
+    SEND_EDIT_RPC(st, EDIT_2_DELETE);
 
     /* Recieve a reply, should succeed */
-    ASSERT_OK_REPLY;
+    ASSERT_OK_REPLY(st);
 
-    FREE_TEST_VARS;
+    FREE_TEST_VARS(st);
 
     /* Check if config empty */
-    ASSERT_EMPTY_CONFIG;
+    ASSERT_EMPTY_CONFIG(st);
 
     /* Send rpc to merge into edit3 config */
-    SEND_EDIT_RPC(EDIT_3_VALID_DATA);
+    SEND_EDIT_RPC(st, EDIT_3_VALID_DATA);
 
     /* Recieve a reply, should succeed */
-    ASSERT_OK_REPLY;
+    ASSERT_OK_REPLY(st);
 
-    FREE_TEST_VARS;
+    FREE_TEST_VARS(st);
 
     /* Check if merged */
-    GET_CONFIG;
-    assert_non_null(strstr(str, "TestThird"));
-    assert_non_null(strstr(str, "123"));
-    assert_null(strstr(str, "456"));
-    free(str);
+    GET_CONFIG(st);
+    assert_non_null(strstr(st->str, "TestThird"));
+    assert_non_null(strstr(st->str, "123"));
+    assert_null(strstr(st->str, "456"));
+    FREE_TEST_VARS(st);
 
     /* Send rpc to merge alternate edit3 config */
-    SEND_EDIT_RPC(EDIT_3_ALT_DATA);
+    SEND_EDIT_RPC(st, EDIT_3_ALT_DATA);
 
     /* Recieve a reply, should succeed */
-    ASSERT_OK_REPLY;
+    ASSERT_OK_REPLY(st);
 
-    FREE_TEST_VARS;
+    FREE_TEST_VARS(st);
 
     /* Check if merged, should now contain both since merging a leaf-list */
-    GET_CONFIG;
-    assert_non_null(strstr(str, "TestThird"));
-    assert_non_null(strstr(str, "123"));
-    assert_non_null(strstr(str, "456"));
-    free(str);
+    GET_CONFIG(st);
+    assert_non_null(strstr(st->str, "TestThird"));
+    assert_non_null(strstr(st->str, "123"));
+    assert_non_null(strstr(st->str, "456"));
+    FREE_TEST_VARS(st);
 
     /* Empty the config */
-    SEND_EDIT_RPC(EDIT_3_DELETE);
+    SEND_EDIT_RPC(st, EDIT_3_DELETE);
 
     /* Recieve a reply, should succeed */
-    ASSERT_OK_REPLY;
+    ASSERT_OK_REPLY(st);
 
-    FREE_TEST_VARS;
+    FREE_TEST_VARS(st);
 
     /* Check if config empty */
-    ASSERT_EMPTY_CONFIG;
+    ASSERT_EMPTY_CONFIG(st);
 }
 
 static void
 test_replace(void **state)
 {
     struct np_test *st = *state;
-    struct nc_rpc *rpc;
-    NC_MSG_TYPE msgtype;
-    uint64_t msgid;
-    struct lyd_node *envp, *op;
-    char *str;
 
     /* Send rpc to replace in an empty config, should create */
-    SEND_EDIT_RPC(EDIT_3_REPLACE);
+    SEND_EDIT_RPC(st, EDIT_3_REPLACE);
 
     /* Receive a reply, should succeed */
-    ASSERT_OK_REPLY;
+    ASSERT_OK_REPLY(st);
 
-    FREE_TEST_VARS;
+    FREE_TEST_VARS(st);
 
     /* Check if correct config */
-    GET_CONFIG;
-    assert_non_null(strstr(str, "TestThird"));
-    assert_non_null(strstr(str, "123"));
-    assert_null(strstr(str, "456"));
-    free(str);
+    GET_CONFIG(st);
+    assert_non_null(strstr(st->str, "TestThird"));
+    assert_non_null(strstr(st->str, "123"));
+    assert_null(strstr(st->str, "456"));
+    FREE_TEST_VARS(st);
 
     /* Send rpc to replace the original config */
-    SEND_EDIT_RPC(EDIT_3_ALT_REPLACE);
+    SEND_EDIT_RPC(st, EDIT_3_ALT_REPLACE);
 
     /* Receive a reply, should succeed */
-    ASSERT_OK_REPLY;
+    ASSERT_OK_REPLY(st);
 
-    FREE_TEST_VARS;
+    FREE_TEST_VARS(st);
 
     /* Check if replaced correctly */
-    GET_CONFIG;
-    assert_non_null(strstr(str, "TestThird"));
-    assert_non_null(strstr(str, "456"));
-    assert_null(strstr(str, "123"));
-    free(str);
+    GET_CONFIG(st);
+    assert_non_null(strstr(st->str, "TestThird"));
+    assert_non_null(strstr(st->str, "456"));
+    assert_null(strstr(st->str, "123"));
+    FREE_TEST_VARS(st);
 
     /* Empty the config */
-    SEND_EDIT_RPC(EDIT_3_ALT_DELETE);
+    SEND_EDIT_RPC(st, EDIT_3_ALT_DELETE);
 
     /* Recieve a reply, should succeed */
-    ASSERT_OK_REPLY;
+    ASSERT_OK_REPLY(st);
 
-    FREE_TEST_VARS;
+    FREE_TEST_VARS(st);
 
     /* Check if config empty */
-    ASSERT_EMPTY_CONFIG;
+    ASSERT_EMPTY_CONFIG(st);
 }
 
 static void
 test_create(void **state)
 {
     struct np_test *st = *state;
-    struct nc_rpc *rpc;
-    NC_MSG_TYPE msgtype;
-    uint64_t msgid;
-    struct lyd_node *envp, *op;
-    char *str;
 
     /* Send rpc creating config in module edit1 */
-    SEND_EDIT_RPC(EDIT_1_CREATE);
+    SEND_EDIT_RPC(st, EDIT_1_CREATE);
 
     /* Receive a reply, should succeed */
-    ASSERT_OK_REPLY;
+    ASSERT_OK_REPLY(st);
 
-    FREE_TEST_VARS;
+    FREE_TEST_VARS(st);
 
     /* Check if config config now contains edit1 */
-    GET_CONFIG;
-    assert_non_null(strstr(str, "TestFirst"));
-    free(str);
+    GET_CONFIG(st);
+    assert_non_null(strstr(st->str, "TestFirst"));
+    FREE_TEST_VARS(st);
 
     /* Send rpc creating the same module */
-    SEND_EDIT_RPC(EDIT_1_CREATE);
+    SEND_EDIT_RPC(st, EDIT_1_CREATE);
 
     /* Receive a reply, should fail */
-    ASSERT_RPC_ERROR;
+    ASSERT_RPC_ERROR(st);
 
-    FREE_TEST_VARS;
+    FREE_TEST_VARS(st);
 
     /* remove to get an empty config */
-    SEND_EDIT_RPC(EDIT_1_REMOVE);
+    SEND_EDIT_RPC(st, EDIT_1_REMOVE);
 
     /* Receive a reply, should succeed */
-    ASSERT_OK_REPLY;
+    ASSERT_OK_REPLY(st);
 
-    FREE_TEST_VARS;
+    FREE_TEST_VARS(st);
 
     /* check if empty config */
-    ASSERT_EMPTY_CONFIG;
+    ASSERT_EMPTY_CONFIG(st);
 }
 
 static void
 test_remove(void **state)
 {
     struct np_test *st = *state;
-    struct nc_rpc *rpc;
-    NC_MSG_TYPE msgtype;
-    uint64_t msgid;
-    struct lyd_node *envp, *op;
-    char *str;
 
     /* Send rpc editing module edit1 */
-    SEND_EDIT_RPC(EDIT_1_VALID_DATA);
+    SEND_EDIT_RPC(st, EDIT_1_VALID_DATA);
 
     /* Receive a reply, should succeed*/
-    ASSERT_OK_REPLY;
+    ASSERT_OK_REPLY(st);
 
-    FREE_TEST_VARS;
+    FREE_TEST_VARS(st);
 
     /* Check if config was merged */
-    GET_CONFIG;
-    assert_string_not_equal(str, EMPTY_GETCONFIG);
-    free(str);
+    GET_CONFIG(st);
+    assert_string_not_equal(st->str, EMPTY_GETCONFIG);
+    FREE_TEST_VARS(st);
 
     /* Try removing the merged config */
-    SEND_EDIT_RPC(EDIT_1_REMOVE);
+    SEND_EDIT_RPC(st, EDIT_1_REMOVE);
 
     /* Receive a reply, should succeed */
-    ASSERT_OK_REPLY;
+    ASSERT_OK_REPLY(st);
 
-    FREE_TEST_VARS;
+    FREE_TEST_VARS(st);
 
     /* Check if config is now empty */
-    ASSERT_EMPTY_CONFIG;
+    ASSERT_EMPTY_CONFIG(st);
 
     /* Try removing the from empty config */
-    SEND_EDIT_RPC(EDIT_1_REMOVE);
+    SEND_EDIT_RPC(st, EDIT_1_REMOVE);
 
     /* Receive a reply, should succeed */
-    ASSERT_OK_REPLY;
+    ASSERT_OK_REPLY(st);
 
-    FREE_TEST_VARS;
+    FREE_TEST_VARS(st);
 
     /* Check if config is still empty */
-    ASSERT_EMPTY_CONFIG;
+    ASSERT_EMPTY_CONFIG(st);
 }
 
 static void
@@ -708,48 +682,43 @@ test_rfc1(void **state)
 {
     /* First example for edit-config from rfc 6241 section 7.2 */
     struct np_test *st = *state;
-    struct nc_rpc *rpc;
-    NC_MSG_TYPE msgtype;
-    uint64_t msgid;
-    struct lyd_node *envp, *op;
-    char *str;
 
     /* Send rpc editing module rfc1 */
-    SEND_EDIT_RPC(RFC1_VALID_DATA);
+    SEND_EDIT_RPC(st, RFC1_VALID_DATA);
 
     /* Receive a reply, should succeed */
-    ASSERT_OK_REPLY;
+    ASSERT_OK_REPLY(st);
 
-    FREE_TEST_VARS;
+    FREE_TEST_VARS(st);
 
     /* Check if there is no address element */
-    GET_CONFIG;
-    assert_null(strstr(str, "address"));
-    free(str);
+    GET_CONFIG(st);
+    assert_null(strstr(st->str, "address"));
+    FREE_TEST_VARS(st);
 
     /* Send rpc replacing module rfc1 */
-    SEND_EDIT_RPC(RFC1_VALID_DATA2);
+    SEND_EDIT_RPC(st, RFC1_VALID_DATA2);
 
     /* Receive a reply, should succeed*/
-    ASSERT_OK_REPLY;
+    ASSERT_OK_REPLY(st);
 
-    FREE_TEST_VARS;
+    FREE_TEST_VARS(st);
 
     /* Check if the address element is now present */
-    GET_CONFIG;
-    assert_non_null(strstr(str, "address"));
-    free(str);
+    GET_CONFIG(st);
+    assert_non_null(strstr(st->str, "address"));
+    FREE_TEST_VARS(st);
 
     /* Send rpc deleting config in module rfc1 */
-    SEND_EDIT_RPC(RFC1_DELETE);
+    SEND_EDIT_RPC(st, RFC1_DELETE);
 
     /* Receive a reply, should succeed*/
-    ASSERT_OK_REPLY;
+    ASSERT_OK_REPLY(st);
 
-    FREE_TEST_VARS;
+    FREE_TEST_VARS(st);
 
     /* Check if empty config */
-    ASSERT_EMPTY_CONFIG;
+    ASSERT_EMPTY_CONFIG(st);
 }
 
 static void
@@ -757,54 +726,49 @@ test_rfc2(void **state)
 {
     /* Second example for edit-config from rfc 6241 section 7.2 */
     struct np_test *st = *state;
-    struct nc_rpc *rpc;
-    NC_MSG_TYPE msgtype;
-    uint64_t msgid;
-    struct lyd_node *envp, *op;
-    char *str;
 
     /* Need to have some running config first */
 
     /* Send rpc editing module rfc2 */
-    SEND_EDIT_RPC(RFC2_VALID_DATA);
+    SEND_EDIT_RPC(st, RFC2_VALID_DATA);
 
     /* Receive a reply, should succeed*/
-    ASSERT_OK_REPLY;
+    ASSERT_OK_REPLY(st);
 
-    FREE_TEST_VARS;
+    FREE_TEST_VARS(st);
 
     /* Send another rpc editing module rfc2 */
-    SEND_EDIT_RPC(RFC2_VALID_DATA2);
+    SEND_EDIT_RPC(st, RFC2_VALID_DATA2);
 
     /* Receive a reply, should succeed */
-    ASSERT_OK_REPLY;
+    ASSERT_OK_REPLY(st);
 
-    FREE_TEST_VARS;
+    FREE_TEST_VARS(st);
 
     /* Send rpc deleting part of the data from module rfc2 */
-    SEND_EDIT_RPC(RFC2_DELETE_DATA);
+    SEND_EDIT_RPC(st, RFC2_DELETE_DATA);
 
     /* Receive a reply, should succeed */
-    ASSERT_OK_REPLY;
+    ASSERT_OK_REPLY(st);
 
-    FREE_TEST_VARS;
+    FREE_TEST_VARS(st);
 
     /* Check if the config was patrialy deleted */
-    GET_CONFIG;
-    assert_null(strstr(str, "192.0.2.4"));
-    assert_non_null(strstr(str, "192.0.2.1"));
-    free(str);
+    GET_CONFIG(st);
+    assert_null(strstr(st->str, "192.0.2.4"));
+    assert_non_null(strstr(st->str, "192.0.2.1"));
+    FREE_TEST_VARS(st);
 
     /* Send rpc deleting part of the data from module rfc2 */
-    SEND_EDIT_RPC(RFC2_DELETE_REST);
+    SEND_EDIT_RPC(st, RFC2_DELETE_REST);
 
     /* Receive a reply, should succeed */
-    ASSERT_OK_REPLY;
+    ASSERT_OK_REPLY(st);
 
-    FREE_TEST_VARS;
+    FREE_TEST_VARS(st);
 
     /* Check if empty config */
-    ASSERT_EMPTY_CONFIG;
+    ASSERT_EMPTY_CONFIG(st);
 }
 
 static void
@@ -812,47 +776,46 @@ test_filter(void **state)
 {
     /* TODO: Move since this is not edit? */
     struct np_test *st = *state;
-    struct nc_rpc *rpc;
-    NC_MSG_TYPE msgtype;
-    uint64_t msgid;
-    struct lyd_node *envp, *op;
-    char *str;
 
     /* Send rpc editing rfc2 */
-    SEND_EDIT_RPC(RFC2_COMPLEX_DATA);
+    SEND_EDIT_RPC(st, RFC2_COMPLEX_DATA);
 
     /* Receive a reply, should succeed */
-    ASSERT_OK_REPLY;
+    ASSERT_OK_REPLY(st);
 
-    FREE_TEST_VARS;
+    FREE_TEST_VARS(st);
 
     /* TODO: Add more modules to test filter on */
 
+    /* TODO: Test subpath filtering */
+
+    /* TODO: Test operators (union mostly) */
+
     /* Filter by xpath */
-    GET_CONFIG_FILTER("/top/protocols/ospf/area[1]");
-    assert_string_equal(str, RFC2_FILTER_AREA1);
-    free(str);
+    GET_CONFIG_FILTER(st, "/top/protocols/ospf/area[1]");
+    assert_string_equal(st->str, RFC2_FILTER_AREA1);
+    FREE_TEST_VARS(st);
 
     /* since there are two last()-1 should be same as 1 */
-    GET_CONFIG_FILTER("/top/protocols/ospf/area[last()-1]");
-    assert_string_equal(str, RFC2_FILTER_AREA1);
-    free(str);
+    GET_CONFIG_FILTER(st, "/top/protocols/ospf/area[last()-1]");
+    assert_string_equal(st->str, RFC2_FILTER_AREA1);
+    FREE_TEST_VARS(st);
 
     /* filter by area name same as the two before */
-    GET_CONFIG_FILTER("/top/protocols/ospf/area[name='0.0.0.0']");
-    assert_string_equal(str, RFC2_FILTER_AREA1);
-    free(str);
+    GET_CONFIG_FILTER(st, "/top/protocols/ospf/area[name='0.0.0.0']");
+    assert_string_equal(st->str, RFC2_FILTER_AREA1);
+    FREE_TEST_VARS(st);
 
     /* Send rpc deleting part of the data from module rfc2 */
-    SEND_EDIT_RPC(RFC2_DELETE_ALL);
+    SEND_EDIT_RPC(st, RFC2_DELETE_ALL);
 
     /* Receive a reply, should succeed */
-    ASSERT_OK_REPLY;
+    ASSERT_OK_REPLY(st);
 
-    FREE_TEST_VARS;
+    FREE_TEST_VARS(st);
 
     /* Check if empty config */
-    ASSERT_EMPTY_CONFIG;
+    ASSERT_EMPTY_CONFIG(st);
 }
 
 int
