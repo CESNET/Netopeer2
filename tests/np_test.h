@@ -75,6 +75,42 @@
     assert_null(state->op);                                                    \
     assert_string_equal(LYD_NAME(lyd_child(state->envp)), "rpc-error");
 
+#define GET_CONFIG_FILTER(state, filter)                                    \
+    state->rpc = nc_rpc_getconfig(NC_DATASTORE_RUNNING, filter,             \
+                                  NC_WD_ALL, NC_PARAMTYPE_CONST);           \
+    state->msgtype = nc_send_rpc(st->nc_sess, state->rpc,                   \
+                                 1000, &state->msgid);                      \
+    assert_int_equal(NC_MSG_RPC, state->msgtype);                           \
+    state->msgtype = nc_recv_reply(st->nc_sess, state->rpc, state->msgid,   \
+                                   2000, &state->envp, &state->op);         \
+    assert_int_equal(state->msgtype, NC_MSG_REPLY);                         \
+    assert_non_null(state->op);                                             \
+    assert_non_null(state->envp);                                           \
+    assert_string_equal(LYD_NAME(lyd_child(state->op)), "data");            \
+    assert_int_equal(LY_SUCCESS,                                            \
+                     lyd_print_mem(&state->str, state->op, LYD_XML, 0));
+
+#define GET_CONFIG(state) GET_CONFIG_FILTER(state, NULL);
+
+#define SEND_EDIT_RPC(state, module)                                           \
+    state->rpc = nc_rpc_edit(NC_DATASTORE_RUNNING, NC_RPC_EDIT_DFLTOP_MERGE,   \
+                             NC_RPC_EDIT_TESTOPT_SET,                          \
+                             NC_RPC_EDIT_ERROPT_ROLLBACK, module,              \
+                             NC_PARAMTYPE_CONST);                              \
+    state->msgtype = nc_send_rpc(st->nc_sess, state->rpc,                      \
+                                 1000, &state->msgid);                         \
+    assert_int_equal(NC_MSG_RPC, state->msgtype);
+
+#define EMPTY_GETCONFIG                                                 \
+    "<get-config xmlns=\"urn:ietf:params:xml:ns:netconf:base:1.0\">\n"  \
+    "  <data/>\n"                                                       \
+    "</get-config>\n"
+
+#define ASSERT_EMPTY_CONFIG(state)                      \
+    GET_CONFIG(state);                                  \
+    assert_string_equal(state->str, EMPTY_GETCONFIG);   \
+    FREE_TEST_VARS(state);
+
 /* test state structure */
 struct np_test {
     pid_t server_pid;

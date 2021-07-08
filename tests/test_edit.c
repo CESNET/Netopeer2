@@ -270,68 +270,6 @@
     "  </protocols>"                                            \
     "</top>"
 
-#define RFC2_COMPLEX_DATA                       \
-    "<top xmlns=\"rfc2\">"                      \
-    "  <protocols>"                             \
-    "    <ospf>"                                \
-    "      <area>"                              \
-    "        <name>0.0.0.0</name>"              \
-    "        <interfaces>"                      \
-    "          <interface>"                     \
-    "            <name>192.0.2.1</name>"        \
-    "          </interface>"                    \
-    "          <interface>"                     \
-    "            <name>192.0.2.4</name>"        \
-    "          </interface>"                    \
-    "        </interfaces>"                     \
-    "      </area>"                             \
-    "      <area>"                              \
-    "        <name>192.168.0.0</name>"          \
-    "        <interfaces>"                      \
-    "          <interface>"                     \
-    "            <name>192.168.0.1</name>"      \
-    "          </interface>"                    \
-    "          <interface>"                     \
-    "            <name>192.168.0.12</name>"     \
-    "          </interface>"                    \
-    "          <interface>"                     \
-    "            <name>192.168.0.25</name>"     \
-    "          </interface>"                    \
-    "        </interfaces>"                     \
-    "      </area>"                             \
-    "    </ospf>"                               \
-    "  </protocols>"                            \
-    "</top>"
-
-#define RFC2_FILTER_AREA1                                               \
-    "<get-config xmlns=\"urn:ietf:params:xml:ns:netconf:base:1.0\">\n"  \
-    "  <data>\n"                                                        \
-    "    <top xmlns=\"rfc2\">\n"                                        \
-    "      <protocols>\n"                                               \
-    "        <ospf>\n"                                                  \
-    "          <area>\n"                                                \
-    "            <name>0.0.0.0</name>\n"                                \
-    "            <interfaces>\n"                                        \
-    "              <interface>\n"                                       \
-    "                <name>192.0.2.1</name>\n"                          \
-    "              </interface>\n"                                      \
-    "              <interface>\n"                                       \
-    "                <name>192.0.2.4</name>\n"                          \
-    "              </interface>\n"                                      \
-    "            </interfaces>\n"                                       \
-    "          </area>\n"                                               \
-    "        </ospf>\n"                                                 \
-    "      </protocols>\n"                                              \
-    "    </top>\n"                                                      \
-    "  </data>\n"                                                       \
-    "</get-config>\n"
-
-#define RFC2_DELETE_ALL                                     \
-    "<top xmlns=\"rfc2\""                                   \
-    "xmlns:xc=\"urn:ietf:params:xml:ns:netconf:base:1.0\""  \
-    "xc:operation=\"delete\">"                              \
-    "</top>"
-
 static int
 local_setup(void **state)
 {
@@ -349,11 +287,16 @@ local_setup(void **state)
 
     /* connect to server and install test modules */
     assert_int_equal(sr_connect(SR_CONN_DEFAULT, &conn), SR_ERR_OK);
-    assert_int_equal(sr_install_module(conn, module1, NULL, features), SR_ERR_OK);
-    assert_int_equal(sr_install_module(conn, module2, NULL, features), SR_ERR_OK);
-    assert_int_equal(sr_install_module(conn, module3, NULL, features), SR_ERR_OK);
-    assert_int_equal(sr_install_module(conn, module4, NULL, features), SR_ERR_OK);
-    assert_int_equal(sr_install_module(conn, module5, NULL, features), SR_ERR_OK);
+    assert_int_equal(sr_install_module(conn, module1, NULL, features),
+                     SR_ERR_OK);
+    assert_int_equal(sr_install_module(conn, module2, NULL, features),
+                     SR_ERR_OK);
+    assert_int_equal(sr_install_module(conn, module3, NULL, features),
+                     SR_ERR_OK);
+    assert_int_equal(sr_install_module(conn, module4, NULL, features),
+                     SR_ERR_OK);
+    assert_int_equal(sr_install_module(conn, module5, NULL, features),
+                     SR_ERR_OK);
     assert_int_equal(sr_disconnect(conn), SR_ERR_OK);
 
     /* setup netopeer2 server */
@@ -771,53 +714,6 @@ test_rfc2(void **state)
     ASSERT_EMPTY_CONFIG(st);
 }
 
-static void
-test_filter(void **state)
-{
-    /* TODO: Move since this is not edit? */
-    struct np_test *st = *state;
-
-    /* Send rpc editing rfc2 */
-    SEND_EDIT_RPC(st, RFC2_COMPLEX_DATA);
-
-    /* Receive a reply, should succeed */
-    ASSERT_OK_REPLY(st);
-
-    FREE_TEST_VARS(st);
-
-    /* TODO: Add more modules to test filter on */
-
-    /* TODO: Test subpath filtering */
-
-    /* TODO: Test operators (union mostly) */
-
-    /* Filter by xpath */
-    GET_CONFIG_FILTER(st, "/top/protocols/ospf/area[1]");
-    assert_string_equal(st->str, RFC2_FILTER_AREA1);
-    FREE_TEST_VARS(st);
-
-    /* since there are two last()-1 should be same as 1 */
-    GET_CONFIG_FILTER(st, "/top/protocols/ospf/area[last()-1]");
-    assert_string_equal(st->str, RFC2_FILTER_AREA1);
-    FREE_TEST_VARS(st);
-
-    /* filter by area name same as the two before */
-    GET_CONFIG_FILTER(st, "/top/protocols/ospf/area[name='0.0.0.0']");
-    assert_string_equal(st->str, RFC2_FILTER_AREA1);
-    FREE_TEST_VARS(st);
-
-    /* Send rpc deleting part of the data from module rfc2 */
-    SEND_EDIT_RPC(st, RFC2_DELETE_ALL);
-
-    /* Receive a reply, should succeed */
-    ASSERT_OK_REPLY(st);
-
-    FREE_TEST_VARS(st);
-
-    /* Check if empty config */
-    ASSERT_EMPTY_CONFIG(st);
-}
-
 int
 main(void)
 {
@@ -830,7 +726,6 @@ main(void)
         cmocka_unit_test(test_remove),
         cmocka_unit_test(test_rfc1),
         cmocka_unit_test(test_rfc2),
-        cmocka_unit_test(test_filter),
     };
 
     nc_verbosity(NC_VERB_WARNING);
