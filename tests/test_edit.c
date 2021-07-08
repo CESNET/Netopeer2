@@ -32,243 +32,8 @@
 #include <libyang/libyang.h>
 #include <nc_client.h>
 #include <sysrepo.h>
-
 #include "np_test.h"
 #include "np_test_config.h"
-
-/* TODO: Move some macros to np_test.h? */
-
-#define GET_CONFIG_FILTER(state, filter)                                    \
-    state->rpc = nc_rpc_getconfig(NC_DATASTORE_RUNNING, filter,             \
-                                  NC_WD_ALL, NC_PARAMTYPE_CONST);           \
-    state->msgtype = nc_send_rpc(st->nc_sess, state->rpc,                   \
-                                 1000, &state->msgid);                      \
-    assert_int_equal(NC_MSG_RPC, state->msgtype);                           \
-    state->msgtype = nc_recv_reply(st->nc_sess, state->rpc, state->msgid,   \
-                                   2000, &state->envp, &state->op);         \
-    assert_int_equal(state->msgtype, NC_MSG_REPLY);                         \
-    assert_non_null(state->op);                                             \
-    assert_non_null(state->envp);                                           \
-    assert_string_equal(LYD_NAME(lyd_child(state->op)), "data");            \
-    assert_int_equal(LY_SUCCESS,                                            \
-                     lyd_print_mem(&state->str, state->op, LYD_XML, 0));
-
-#define GET_CONFIG(state) GET_CONFIG_FILTER(state, NULL);
-
-#define SEND_EDIT_RPC(state, module)                                           \
-    state->rpc = nc_rpc_edit(NC_DATASTORE_RUNNING, NC_RPC_EDIT_DFLTOP_MERGE,   \
-                             NC_RPC_EDIT_TESTOPT_SET,                          \
-                             NC_RPC_EDIT_ERROPT_ROLLBACK, module,              \
-                             NC_PARAMTYPE_CONST);                              \
-    state->msgtype = nc_send_rpc(st->nc_sess, state->rpc,                      \
-                                 1000, &state->msgid);                         \
-    assert_int_equal(NC_MSG_RPC, state->msgtype);
-
-#define EMPTY_GETCONFIG                                                 \
-    "<get-config xmlns=\"urn:ietf:params:xml:ns:netconf:base:1.0\">\n"  \
-    "  <data/>\n"                                                       \
-    "</get-config>\n"
-
-#define ASSERT_EMPTY_CONFIG(state)                      \
-    GET_CONFIG(state);                                  \
-    assert_string_equal(state->str, EMPTY_GETCONFIG);   \
-    FREE_TEST_VARS(state);
-
-#define EDIT_1_VALID_DATA "<first xmlns=\"ed1\">TestFirst</first>"
-
-#define EDIT_2_VALID_DATA                       \
-    "<top xmlns=\"ed2\">"                       \
-    "  <name>TestSecond</name>"                 \
-    "  <num>123</num>"                          \
-    "</top>"
-
-#define EDIT_2_PARTIAL_DATA                     \
-    "<top xmlns=\"ed2\">"                       \
-    "  <name>TestSecond</name>"                 \
-    "</top>"
-
-#define EDIT_2_ALT_DATA                         \
-    "<top xmlns=\"ed2\">"                       \
-    "  <name>TestSecond</name>"                 \
-    "  <num>456</num>"                          \
-    "</top>"
-
-#define EDIT_2_INVALID_DATA_NUM                 \
-    "<top xmlns=\"ed2\">"                       \
-    "  <name>TestSecond</name>"                 \
-    "  <num>ClearlyNotANumericValue</num>"      \
-    "</top>"
-
-#define EDIT_3_VALID_DATA                       \
-    "<top xmlns=\"ed3\">"                       \
-    "  <name>TestThird</name>"                  \
-    "  <num>123</num>"                          \
-    "</top>"
-
-#define EDIT_3_ALT_DATA                         \
-    "<top xmlns=\"ed3\">"                       \
-    "  <name>TestThird</name>"                  \
-    "  <num>456</num>"                          \
-    "</top>"
-
-#define EDIT_1_DELETE                                       \
-    "<first xmlns=\"ed1\""                                  \
-    "xmlns:xc=\"urn:ietf:params:xml:ns:netconf:base:1.0\""  \
-    "xc:operation=\"delete\">TestFirst</first>"
-
-#define EDIT_2_DELETE                                       \
-    "<top xmlns=\"ed2\""                                    \
-    "xmlns:xc=\"urn:ietf:params:xml:ns:netconf:base:1.0\""  \
-    "xc:operation=\"delete\">"                              \
-    "  <name>TestSecond</name>"                             \
-    "  <num>123</num>"                                      \
-    "</top>"
-
-#define EDIT_3_DELETE                                       \
-    "<top xmlns=\"ed3\""                                    \
-    "xmlns:xc=\"urn:ietf:params:xml:ns:netconf:base:1.0\""  \
-    "xc:operation=\"delete\">"                              \
-    "  <name>TestThird</name>"                              \
-    "  <num>123</num>"                                      \
-    "  <num>456</num>"                                      \
-    "</top>"
-
-#define EDIT_3_ALT_DELETE                                   \
-    "<top xmlns=\"ed3\""                                    \
-    "xmlns:xc=\"urn:ietf:params:xml:ns:netconf:base:1.0\""  \
-    "xc:operation=\"delete\">"                              \
-    "  <name>TestThird</name>"                              \
-    "  <num>456</num>"                                      \
-    "</top>"
-
-#define EDIT_1_REMOVE                                       \
-    "<first xmlns=\"ed1\""                                  \
-    "xmlns:xc=\"urn:ietf:params:xml:ns:netconf:base:1.0\""  \
-    "xc:operation=\"remove\">TestFirst</first>"
-
-#define EDIT_1_CREATE                                       \
-    "<first xmlns=\"ed1\""                                  \
-    "xmlns:xc=\"urn:ietf:params:xml:ns:netconf:base:1.0\""  \
-    "xc:operation=\"create\">TestFirst</first>"
-
-#define EDIT_2_REPLACE                                      \
-    "<top xmlns=\"ed2\""                                    \
-    "xmlns:xc=\"urn:ietf:params:xml:ns:netconf:base:1.0\""  \
-    "xc:operation=\"replace\">"                             \
-    "  <name>TestSecond</name>"                             \
-    "  <num>456</num>"                                      \
-    "</top>"
-
-#define EDIT_3_REPLACE                                      \
-    "<top xmlns=\"ed3\""                                    \
-    "xmlns:xc=\"urn:ietf:params:xml:ns:netconf:base:1.0\""  \
-    "xc:operation=\"replace\">"                             \
-    "  <name>TestThird</name>"                              \
-    "  <num>123</num>"                                      \
-    "</top>"
-
-#define EDIT_3_ALT_REPLACE                                  \
-    "<top xmlns=\"ed3\""                                    \
-    "xmlns:xc=\"urn:ietf:params:xml:ns:netconf:base:1.0\""  \
-    "xc:operation=\"replace\">"                             \
-    "  <name>TestThird</name>"                              \
-    "  <num>456</num>"                                      \
-    "</top>"
-
-#define RFC1_VALID_DATA                         \
-    "<top xmlns=\"rfc1\">"                      \
-    "  <interface>"                             \
-    "    <name>Ethernet0/0</name>"              \
-    "    <mtu>1500</mtu>"                       \
-    "  </interface>"                            \
-    "</top>"
-
-#define RFC1_VALID_DATA2                        \
-    "<top xmlns=\"rfc1\">"                      \
-    "  <interface operation=\"replace\">"       \
-    "    <name>Ethernet0/0</name>"              \
-    "    <mtu>1500</mtu>"                       \
-    "    <address>"                             \
-    "      <name>192.0.2.4</name>"              \
-    "      <prefix-length>24</prefix-length>"   \
-    "    </address>"                            \
-    "  </interface>"                            \
-    "</top>"
-
-#define RFC1_DELETE                                         \
-    "<top xmlns=\"rfc1\""                                   \
-    "xmlns:xc=\"urn:ietf:params:xml:ns:netconf:base:1.0\">" \
-    "  <interface xc:operation=\"delete\">"                 \
-    "    <name>Ethernet0/0</name>"                          \
-    "  </interface>"                                        \
-    "</top>"
-
-#define RFC2_VALID_DATA                         \
-    "<top xmlns=\"rfc2\">"                      \
-    "  <protocols>"                             \
-    "    <ospf>"                                \
-    "      <area>"                              \
-    "        <name>0.0.0.0</name>"              \
-    "        <interfaces>"                      \
-    "          <interface>"                     \
-    "            <name>192.0.2.4</name>"        \
-    "          </interface>"                    \
-    "        </interfaces>"                     \
-    "      </area>"                             \
-    "    </ospf>"                               \
-    "  </protocols>"                            \
-    "</top>"
-
-#define RFC2_VALID_DATA2                        \
-    "<top xmlns=\"rfc2\">"                      \
-    "  <protocols>"                             \
-    "    <ospf>"                                \
-    "      <area>"                              \
-    "        <name>0.0.0.0</name>"              \
-    "        <interfaces>"                      \
-    "          <interface>"                     \
-    "            <name>192.0.2.1</name>"        \
-    "          </interface>"                    \
-    "        </interfaces>"                     \
-    "      </area>"                             \
-    "    </ospf>"                               \
-    "  </protocols>"                            \
-    "</top>"
-
-#define RFC2_DELETE_DATA                                                \
-    "<top xmlns=\"rfc2\">"                                              \
-    "  <protocols>"                                                     \
-    "    <ospf>"                                                        \
-    "      <area>"                                                      \
-    "        <name>0.0.0.0</name>"                                      \
-    "        <interfaces"                                               \
-    "         xmlns:xc=\"urn:ietf:params:xml:ns:netconf:base:1.0\">"    \
-    "          <interface xc:operation=\"delete\">"                     \
-    "            <name>192.0.2.4</name>"                                \
-    "          </interface>"                                            \
-    "        </interfaces>"                                             \
-    "      </area>"                                                     \
-    "    </ospf>"                                                       \
-    "  </protocols>"                                                    \
-    "</top>"
-
-#define RFC2_DELETE_REST                                        \
-    "<top xmlns=\"rfc2\""                                       \
-    "     xmlns:xc=\"urn:ietf:params:xml:ns:netconf:base:1.0\"" \
-    "     xc:operation=\"delete\">"                             \
-    "  <protocols>"                                             \
-    "    <ospf>"                                                \
-    "      <area>"                                              \
-    "        <name>0.0.0.0</name>"                              \
-    "        <interfaces>"                                      \
-    "          <interface>"                                     \
-    "            <name>192.0.2.1</name>"                        \
-    "          </interface>"                                    \
-    "        </interfaces>"                                     \
-    "      </area>"                                             \
-    "    </ospf>"                                               \
-    "  </protocols>"                                            \
-    "</top>"
 
 static int
 local_setup(void **state)
@@ -288,15 +53,15 @@ local_setup(void **state)
     /* connect to server and install test modules */
     assert_int_equal(sr_connect(SR_CONN_DEFAULT, &conn), SR_ERR_OK);
     assert_int_equal(sr_install_module(conn, module1, NULL, features),
-                     SR_ERR_OK);
+            SR_ERR_OK);
     assert_int_equal(sr_install_module(conn, module2, NULL, features),
-                     SR_ERR_OK);
+            SR_ERR_OK);
     assert_int_equal(sr_install_module(conn, module3, NULL, features),
-                     SR_ERR_OK);
+            SR_ERR_OK);
     assert_int_equal(sr_install_module(conn, module4, NULL, features),
-                     SR_ERR_OK);
+            SR_ERR_OK);
     assert_int_equal(sr_install_module(conn, module5, NULL, features),
-                     SR_ERR_OK);
+            SR_ERR_OK);
     assert_int_equal(sr_disconnect(conn), SR_ERR_OK);
 
     /* setup netopeer2 server */
@@ -325,7 +90,9 @@ static void
 test_merge(void **state)
 {
     struct np_test *st = *state;
+    const char *EDIT_1_VALID_DATA, *EDIT_2_VALID_DATA, *EDIT_2_INVALID_DATA_NUM;
 
+    EDIT_1_VALID_DATA = "<first xmlns=\"ed1\">TestFirst</first>";
     /* Send rpc editing module edit1 */
     SEND_EDIT_RPC(st, EDIT_1_VALID_DATA);
 
@@ -338,6 +105,12 @@ test_merge(void **state)
     GET_CONFIG(st);
     assert_non_null(strstr(st->str, "TestFirst"));
     FREE_TEST_VARS(st);
+
+    EDIT_2_VALID_DATA =
+            "<top xmlns=\"ed2\">"                       \
+            "  <name>TestSecond</name>"                 \
+            "  <num>123</num>"                          \
+            "</top>";
 
     /* Send rpc editing module edit2 */
     SEND_EDIT_RPC(st, EDIT_2_VALID_DATA);
@@ -352,6 +125,12 @@ test_merge(void **state)
     assert_non_null(strstr(st->str, "TestSecond"));
     FREE_TEST_VARS(st);
 
+    EDIT_2_INVALID_DATA_NUM =
+            "<top xmlns=\"ed2\">"                       \
+            "  <name>TestSecond</name>"                 \
+            "  <num>ClearlyNotANumericValue</num>"      \
+            "</top>";
+
     /* Send invalid rpc editing module edit2 */
     SEND_EDIT_RPC(st, EDIT_2_INVALID_DATA_NUM);
 
@@ -365,6 +144,12 @@ static void
 test_delete(void **state)
 {
     struct np_test *st = *state;
+    const char *EDIT_1_DELETE, *EDIT_2_DELETE;
+
+    EDIT_1_DELETE =
+            "<first xmlns=\"ed1\""                                  \
+            "xmlns:xc=\"urn:ietf:params:xml:ns:netconf:base:1.0\""  \
+            "xc:operation=\"delete\">TestFirst</first>";
 
     /* Check if the config for both is present */
     GET_CONFIG(st);
@@ -384,6 +169,12 @@ test_delete(void **state)
     GET_CONFIG(st);
     assert_null(strstr(st->str, "TestFirst"));
     FREE_TEST_VARS(st);
+
+    EDIT_2_DELETE =
+            "<top xmlns=\"ed2\""                                    \
+            "xmlns:xc=\"urn:ietf:params:xml:ns:netconf:base:1.0\""  \
+            "xc:operation=\"delete\">"                              \
+            "</top>";
 
     /* Send rpc deleting config in module edit2 */
     SEND_EDIT_RPC(st, EDIT_2_DELETE);
@@ -409,9 +200,16 @@ static void
 test_merge_advanced(void **state)
 {
     struct np_test *st = *state;
+    const char *EDIT_2_PARTIAL_DATA, *EDIT_2_VALID_DATA, *EDIT_2_DELETE,
+            *EDIT_3_VALID_DATA, *EDIT_3_ALT_DATA, *EDIT_3_DELETE_ALL;
 
     /* Check if config empty */
     ASSERT_EMPTY_CONFIG(st);
+
+    EDIT_2_PARTIAL_DATA =
+            "<top xmlns=\"ed2\">"                       \
+            "  <name>TestSecond</name>"                 \
+            "</top>";
 
     /* Merge a partial config */
     SEND_EDIT_RPC(st, EDIT_2_PARTIAL_DATA);
@@ -427,6 +225,12 @@ test_merge_advanced(void **state)
     assert_null(strstr(st->str, "123"));
     FREE_TEST_VARS(st);
 
+    EDIT_2_VALID_DATA =
+            "<top xmlns=\"ed2\">"                       \
+            "  <name>TestSecond</name>"                 \
+            "  <num>123</num>"                          \
+            "</top>";
+
     /* Merge a full config */
     SEND_EDIT_RPC(st, EDIT_2_VALID_DATA);
 
@@ -441,6 +245,12 @@ test_merge_advanced(void **state)
     assert_non_null(strstr(st->str, "123"));
     FREE_TEST_VARS(st);
 
+    EDIT_2_DELETE =
+            "<top xmlns=\"ed2\""                                    \
+            "xmlns:xc=\"urn:ietf:params:xml:ns:netconf:base:1.0\""  \
+            "xc:operation=\"delete\">"                              \
+            "</top>";
+
     /* Empty the config */
     SEND_EDIT_RPC(st, EDIT_2_DELETE);
 
@@ -451,6 +261,12 @@ test_merge_advanced(void **state)
 
     /* Check if config empty */
     ASSERT_EMPTY_CONFIG(st);
+
+    EDIT_3_VALID_DATA =
+            "<top xmlns=\"ed3\">"                       \
+            "  <name>TestThird</name>"                  \
+            "  <num>123</num>"                          \
+            "</top>";
 
     /* Send rpc to merge into edit3 config */
     SEND_EDIT_RPC(st, EDIT_3_VALID_DATA);
@@ -467,6 +283,12 @@ test_merge_advanced(void **state)
     assert_null(strstr(st->str, "456"));
     FREE_TEST_VARS(st);
 
+    EDIT_3_ALT_DATA =
+            "<top xmlns=\"ed3\">"                       \
+            "  <name>TestThird</name>"                  \
+            "  <num>456</num>"                          \
+            "</top>";
+
     /* Send rpc to merge alternate edit3 config */
     SEND_EDIT_RPC(st, EDIT_3_ALT_DATA);
 
@@ -482,8 +304,14 @@ test_merge_advanced(void **state)
     assert_non_null(strstr(st->str, "456"));
     FREE_TEST_VARS(st);
 
+    EDIT_3_DELETE_ALL =
+            "<top xmlns=\"ed3\""                                    \
+            "xmlns:xc=\"urn:ietf:params:xml:ns:netconf:base:1.0\""  \
+            "xc:operation=\"delete\">"                              \
+            "</top>";
+
     /* Empty the config */
-    SEND_EDIT_RPC(st, EDIT_3_DELETE);
+    SEND_EDIT_RPC(st, EDIT_3_DELETE_ALL);
 
     /* Recieve a reply, should succeed */
     ASSERT_OK_REPLY(st);
@@ -498,6 +326,15 @@ static void
 test_replace(void **state)
 {
     struct np_test *st = *state;
+    const char *EDIT_3_REPLACE, *EDIT_3_ALT_REPLACE, *EDIT_3_DELETE_ALL;
+
+    EDIT_3_REPLACE =
+            "<top xmlns=\"ed3\""                                    \
+            "xmlns:xc=\"urn:ietf:params:xml:ns:netconf:base:1.0\""  \
+            "xc:operation=\"replace\">"                             \
+            "  <name>TestThird</name>"                              \
+            "  <num>123</num>"                                      \
+            "</top>";
 
     /* Send rpc to replace in an empty config, should create */
     SEND_EDIT_RPC(st, EDIT_3_REPLACE);
@@ -514,6 +351,14 @@ test_replace(void **state)
     assert_null(strstr(st->str, "456"));
     FREE_TEST_VARS(st);
 
+    EDIT_3_ALT_REPLACE =
+            "<top xmlns=\"ed3\""                                    \
+            "xmlns:xc=\"urn:ietf:params:xml:ns:netconf:base:1.0\""  \
+            "xc:operation=\"replace\">"                             \
+            "  <name>TestThird</name>"                              \
+            "  <num>456</num>"                                      \
+            "</top>";
+
     /* Send rpc to replace the original config */
     SEND_EDIT_RPC(st, EDIT_3_ALT_REPLACE);
 
@@ -529,8 +374,14 @@ test_replace(void **state)
     assert_null(strstr(st->str, "123"));
     FREE_TEST_VARS(st);
 
+    EDIT_3_DELETE_ALL =
+            "<top xmlns=\"ed3\""                                    \
+            "xmlns:xc=\"urn:ietf:params:xml:ns:netconf:base:1.0\""  \
+            "xc:operation=\"delete\">"                              \
+            "</top>";
+
     /* Empty the config */
-    SEND_EDIT_RPC(st, EDIT_3_ALT_DELETE);
+    SEND_EDIT_RPC(st, EDIT_3_DELETE_ALL);
 
     /* Recieve a reply, should succeed */
     ASSERT_OK_REPLY(st);
@@ -545,6 +396,12 @@ static void
 test_create(void **state)
 {
     struct np_test *st = *state;
+    const char *EDIT_1_CREATE, *EDIT_1_REMOVE;
+
+    EDIT_1_CREATE =
+            "<first xmlns=\"ed1\""                                  \
+            "xmlns:xc=\"urn:ietf:params:xml:ns:netconf:base:1.0\""  \
+            "xc:operation=\"create\">TestFirst</first>";
 
     /* Send rpc creating config in module edit1 */
     SEND_EDIT_RPC(st, EDIT_1_CREATE);
@@ -567,6 +424,11 @@ test_create(void **state)
 
     FREE_TEST_VARS(st);
 
+    EDIT_1_REMOVE =
+            "<first xmlns=\"ed1\""                                  \
+            "xmlns:xc=\"urn:ietf:params:xml:ns:netconf:base:1.0\""  \
+            "xc:operation=\"remove\">TestFirst</first>";
+
     /* remove to get an empty config */
     SEND_EDIT_RPC(st, EDIT_1_REMOVE);
 
@@ -583,6 +445,9 @@ static void
 test_remove(void **state)
 {
     struct np_test *st = *state;
+    const char *EDIT_1_VALID_DATA, *EDIT_1_REMOVE;
+
+    EDIT_1_VALID_DATA = "<first xmlns=\"ed1\">TestFirst</first>";
 
     /* Send rpc editing module edit1 */
     SEND_EDIT_RPC(st, EDIT_1_VALID_DATA);
@@ -596,6 +461,11 @@ test_remove(void **state)
     GET_CONFIG(st);
     assert_string_not_equal(st->str, EMPTY_GETCONFIG);
     FREE_TEST_VARS(st);
+
+    EDIT_1_REMOVE =
+            "<first xmlns=\"ed1\""                                  \
+            "xmlns:xc=\"urn:ietf:params:xml:ns:netconf:base:1.0\""  \
+            "xc:operation=\"remove\">TestFirst</first>";
 
     /* Try removing the merged config */
     SEND_EDIT_RPC(st, EDIT_1_REMOVE);
@@ -625,6 +495,15 @@ test_rfc1(void **state)
 {
     /* First example for edit-config from rfc 6241 section 7.2 */
     struct np_test *st = *state;
+    const char *RFC1_DELETE, *RFC1_VALID_DATA2, *RFC1_VALID_DATA;
+
+    RFC1_VALID_DATA =
+            "<top xmlns=\"rfc1\">"                      \
+            "  <interface>"                             \
+            "    <name>Ethernet0/0</name>"              \
+            "    <mtu>1500</mtu>"                       \
+            "  </interface>"                            \
+            "</top>";
 
     /* Send rpc editing module rfc1 */
     SEND_EDIT_RPC(st, RFC1_VALID_DATA);
@@ -639,6 +518,18 @@ test_rfc1(void **state)
     assert_null(strstr(st->str, "address"));
     FREE_TEST_VARS(st);
 
+    RFC1_VALID_DATA2 =
+            "<top xmlns=\"rfc1\">"                      \
+            "  <interface operation=\"replace\">"       \
+            "    <name>Ethernet0/0</name>"              \
+            "    <mtu>1500</mtu>"                       \
+            "    <address>"                             \
+            "      <name>192.0.2.4</name>"              \
+            "      <prefix-length>24</prefix-length>"   \
+            "    </address>"                            \
+            "  </interface>"                            \
+            "</top>";
+
     /* Send rpc replacing module rfc1 */
     SEND_EDIT_RPC(st, RFC1_VALID_DATA2);
 
@@ -651,6 +542,14 @@ test_rfc1(void **state)
     GET_CONFIG(st);
     assert_non_null(strstr(st->str, "address"));
     FREE_TEST_VARS(st);
+
+    RFC1_DELETE =
+            "<top xmlns=\"rfc1\""                                   \
+            "xmlns:xc=\"urn:ietf:params:xml:ns:netconf:base:1.0\">" \
+            "  <interface xc:operation=\"delete\">"                 \
+            "    <name>Ethernet0/0</name>"                          \
+            "  </interface>"                                        \
+            "</top>";
 
     /* Send rpc deleting config in module rfc1 */
     SEND_EDIT_RPC(st, RFC1_DELETE);
@@ -669,8 +568,26 @@ test_rfc2(void **state)
 {
     /* Second example for edit-config from rfc 6241 section 7.2 */
     struct np_test *st = *state;
+    const char *RFC2_DELETE_REST, *RFC2_DELETE_DATA,
+            *RFC2_VALID_DATA, *RFC2_VALID_DATA2;
 
     /* Need to have some running config first */
+
+    RFC2_VALID_DATA =
+            "<top xmlns=\"rfc2\">"                      \
+            "  <protocols>"                             \
+            "    <ospf>"                                \
+            "      <area>"                              \
+            "        <name>0.0.0.0</name>"              \
+            "        <interfaces>"                      \
+            "          <interface>"                     \
+            "            <name>192.0.2.4</name>"        \
+            "          </interface>"                    \
+            "        </interfaces>"                     \
+            "      </area>"                             \
+            "    </ospf>"                               \
+            "  </protocols>"                            \
+            "</top>";
 
     /* Send rpc editing module rfc2 */
     SEND_EDIT_RPC(st, RFC2_VALID_DATA);
@@ -680,6 +597,22 @@ test_rfc2(void **state)
 
     FREE_TEST_VARS(st);
 
+    RFC2_VALID_DATA2 =
+            "<top xmlns=\"rfc2\">"                      \
+            "  <protocols>"                             \
+            "    <ospf>"                                \
+            "      <area>"                              \
+            "        <name>0.0.0.0</name>"              \
+            "        <interfaces>"                      \
+            "          <interface>"                     \
+            "            <name>192.0.2.1</name>"        \
+            "          </interface>"                    \
+            "        </interfaces>"                     \
+            "      </area>"                             \
+            "    </ospf>"                               \
+            "  </protocols>"                            \
+            "</top>";
+
     /* Send another rpc editing module rfc2 */
     SEND_EDIT_RPC(st, RFC2_VALID_DATA2);
 
@@ -687,6 +620,23 @@ test_rfc2(void **state)
     ASSERT_OK_REPLY(st);
 
     FREE_TEST_VARS(st);
+
+    RFC2_DELETE_DATA =
+            "<top xmlns=\"rfc2\">"                                              \
+            "  <protocols>"                                                     \
+            "    <ospf>"                                                        \
+            "      <area>"                                                      \
+            "        <name>0.0.0.0</name>"                                      \
+            "        <interfaces"                                               \
+            "         xmlns:xc=\"urn:ietf:params:xml:ns:netconf:base:1.0\">"    \
+            "          <interface xc:operation=\"delete\">"                     \
+            "            <name>192.0.2.4</name>"                                \
+            "          </interface>"                                            \
+            "        </interfaces>"                                             \
+            "      </area>"                                                     \
+            "    </ospf>"                                                       \
+            "  </protocols>"                                                    \
+            "</top>";
 
     /* Send rpc deleting part of the data from module rfc2 */
     SEND_EDIT_RPC(st, RFC2_DELETE_DATA);
@@ -701,6 +651,12 @@ test_rfc2(void **state)
     assert_null(strstr(st->str, "192.0.2.4"));
     assert_non_null(strstr(st->str, "192.0.2.1"));
     FREE_TEST_VARS(st);
+
+    RFC2_DELETE_REST =
+            "<top xmlns=\"rfc2\""                                       \
+            "     xmlns:xc=\"urn:ietf:params:xml:ns:netconf:base:1.0\"" \
+            "     xc:operation=\"delete\">"                             \
+            "</top>";
 
     /* Send rpc deleting part of the data from module rfc2 */
     SEND_EDIT_RPC(st, RFC2_DELETE_REST);
