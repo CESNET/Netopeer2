@@ -181,48 +181,55 @@ test_xpath_basic(void **state)
 static void
 test_subtree_basic(void **state)
 {
+    /* TODO: Check with multiple configs without namespace */
     struct np_test *st = *state;
     const char *RFC2_COMPLEX_DATA, *RFC2_DELETE_ALL, *RFC2_FILTER_AREA1,
             *subtree1;
 
     RFC2_COMPLEX_DATA =
-            "<top xmlns=\"rfc2\">"                      \
-            "  <protocols>"                             \
-            "    <ospf>"                                \
-            "      <area>"                              \
-            "        <name>0.0.0.0</name>"              \
-            "        <interfaces>"                      \
-            "          <interface>"                     \
-            "            <name>192.0.2.1</name>"        \
-            "          </interface>"                    \
-            "          <interface>"                     \
-            "            <name>192.0.2.4</name>"        \
-            "          </interface>"                    \
-            "        </interfaces>"                     \
-            "      </area>"                             \
-            "      <area>"                              \
-            "        <name>192.168.0.0</name>"          \
-            "        <interfaces>"                      \
-            "          <interface>"                     \
-            "            <name>192.168.0.1</name>"      \
-            "          </interface>"                    \
-            "          <interface>"                     \
-            "            <name>192.168.0.12</name>"     \
-            "          </interface>"                    \
-            "          <interface>"                     \
-            "            <name>192.168.0.25</name>"     \
-            "          </interface>"                    \
-            "        </interfaces>"                     \
-            "      </area>"                             \
-            "    </ospf>"                               \
-            "  </protocols>"                            \
-            "</top>";
+            "<top xmlns=\"rfc2\">\n"                      \
+            "  <protocols>\n"                             \
+            "    <ospf>\n"                                \
+            "      <area>\n"                              \
+            "        <name>0.0.0.0</name>\n"              \
+            "        <interfaces>\n"                      \
+            "          <interface>\n"                     \
+            "            <name>192.0.2.1</name>\n"        \
+            "          </interface>\n"                    \
+            "          <interface>\n"                     \
+            "            <name>192.0.2.4</name>\n"        \
+            "          </interface>\n"                    \
+            "        </interfaces>\n"                     \
+            "      </area>\n"                             \
+            "      <area>\n"                              \
+            "        <name>192.168.0.0</name>\n"          \
+            "        <interfaces>\n"                      \
+            "          <interface>\n"                     \
+            "            <name>192.168.0.1</name>\n"      \
+            "          </interface>\n"                    \
+            "          <interface>\n"                     \
+            "            <name>192.168.0.12</name>\n"     \
+            "          </interface>\n"                    \
+            "          <interface>\n"                     \
+            "            <name>192.168.0.25</name>\n"     \
+            "          </interface>\n"                    \
+            "        </interfaces>\n"                     \
+            "      </area>\n"                             \
+            "    </ospf>\n"                               \
+            "  </protocols>\n"                            \
+            "</top>\n";
 
     /* Send rpc editing rfc2 */
     SEND_EDIT_RPC(st, RFC2_COMPLEX_DATA);
 
     /* Receive a reply, should succeed */
     ASSERT_OK_REPLY(st);
+
+    FREE_TEST_VARS(st);
+
+    GET_CONFIG(st);
+
+    printf("%s", st->str);
 
     FREE_TEST_VARS(st);
 
@@ -263,6 +270,50 @@ test_subtree_basic(void **state)
             "</get-config>\n";
 
     assert_string_equal(st->str, RFC2_FILTER_AREA1);
+
+    FREE_TEST_VARS(st);
+
+    /* TODO: DEBUG: Returns empty data? */
+    GET_CONFIG_FILTER(st, "");
+
+    const char *RFC2_EMPTY_FILTER =
+        "<get-config xmlns=\"urn:ietf:params:xml:ns:netconf:base:1.0\">\n" \
+        "  <data>\n"                                                       \
+        "    <top xmlns=\"rfc2\">\n"                                       \
+        "      <protocols>\n"                                              \
+        "        <ospf>\n"                                                 \
+        "          <area>\n"                                               \
+        "            <name>0.0.0.0</name>\n"                               \
+        "            <interfaces>\n"                                       \
+        "              <interface>\n"                                      \
+        "                <name>192.0.2.1</name>\n"                         \
+        "              </interface>\n"                                     \
+        "              <interface>\n"                                      \
+        "                <name>192.0.2.4</name>\n"                         \
+        "              </interface>\n"                                     \
+        "            </interfaces>\n"                                      \
+        "          </area>\n"                                              \
+        "          <area>\n"                                               \
+        "            <name>192.168.0.0</name>\n"                           \
+        "            <interfaces>\n"                                       \
+        "              <interface>\n"                                      \
+        "                <name>192.168.0.1</name>\n"                       \
+        "              </interface>\n"                                     \
+        "              <interface>\n"                                      \
+        "                <name>192.168.0.12</name>\n"                      \
+        "              </interface>\n"                                     \
+        "              <interface>\n"                                      \
+        "                <name>192.168.0.25</name>\n"                      \
+        "              </interface>\n"                                     \
+        "            </interfaces>\n"                                      \
+        "          </area>\n"                                              \
+        "        </ospf>\n"                                                \
+        "      </protocols>\n"                                             \
+        "    </top>\n"                                                     \
+        "  </data>\n"                                                      \
+        "</get-config>\n";
+
+    assert_string_equal(st->str, RFC2_EMPTY_FILTER);
 
     FREE_TEST_VARS(st);
 
