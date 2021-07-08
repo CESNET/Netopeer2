@@ -35,17 +35,20 @@
 #include "np_test.h"
 #include "np_test_config.h.in"
 
-#define LOCK_FAIL_TEMPLATE "<rpc-reply xmlns=\"urn:ietf:params:xml:ns:netconf:base:1.0\" message-id=\"%ld\">\n"\
-        "  <rpc-error>\n"\
-        "    <error-type>protocol</error-type>\n"\
-        "    <error-tag>lock-denied</error-tag>\n"\
-        "    <error-severity>error</error-severity>\n"\
-        "    <error-message lang=\"en\">Access to the requested lock is denied because the lock is currently held by another entity.</error-message>\n"\
-        "    <error-info>\n"\
-        "      <session-id>%d</session-id>\n"\
-        "    </error-info>\n"\
-        "  </rpc-error>\n"\
-        "</rpc-reply>\n"
+#define LOCK_FAIL_TEMPLATE "<rpc-reply "                                       \
+    "xmlns=\"urn:ietf:params:xml:ns:netconf:base:1.0\" "                       \
+    "message-id=\"%ld\">\n"                                                    \
+    "  <rpc-error>\n"                                                          \
+    "    <error-type>protocol</error-type>\n"                                  \
+    "    <error-tag>lock-denied</error-tag>\n"                                 \
+    "    <error-severity>error</error-severity>\n"                             \
+    "    <error-message lang=\"en\">Access to the requested lock is denied"    \
+    " because the lock is currently held by another entity.</error-message>\n" \
+    "    <error-info>\n"                                                       \
+    "      <session-id>%d</session-id>\n"                                      \
+    "    </error-info>\n"                                                      \
+    "  </rpc-error>\n"                                                         \
+    "</rpc-reply>\n"
 
 static int
 local_setup(void **state)
@@ -79,7 +82,8 @@ test_types(void **state)
     assert_int_equal(NC_RPC_KILL, nc_rpc_get_type(rpc));
     nc_rpc_free(rpc);
 
-    rpc = nc_rpc_commit(NC_DATASTORE_RUNNING, 0, NULL, NULL, NC_PARAMTYPE_CONST);
+    rpc = nc_rpc_commit(NC_DATASTORE_RUNNING, 0, NULL,
+            NULL, NC_PARAMTYPE_CONST);
     assert_int_equal(NC_RPC_COMMIT, nc_rpc_get_type(rpc));
     nc_rpc_free(rpc);
 
@@ -99,7 +103,8 @@ test_types(void **state)
     assert_int_equal(NC_RPC_SUBSCRIBE, nc_rpc_get_type(rpc));
     nc_rpc_free(rpc);
 
-    rpc = nc_rpc_getdata("", "", "", NULL, 0, 0, 0, 0, NC_WD_ALL, NC_PARAMTYPE_CONST);
+    rpc = nc_rpc_getdata("", "", "", NULL, 0, 0, 0, 0,
+            NC_WD_ALL, NC_PARAMTYPE_CONST);
     assert_int_equal(NC_RPC_GETDATA, nc_rpc_get_type(rpc));
     nc_rpc_free(rpc);
 
@@ -141,7 +146,8 @@ test_lock(void **state)
     ASSERT_RPC_ERROR_SESS2;
     assert_int_equal(LY_SUCCESS, lyd_print_mem(&str, envp, LYD_XML, 0));
 
-    assert_int_not_equal(-1, asprintf(&str2, LOCK_FAIL_TEMPLATE, msgid, nc_session_get_id(st->nc_sess)));
+    assert_int_not_equal(-1, asprintf(&str2, LOCK_FAIL_TEMPLATE, msgid,
+            nc_session_get_id(st->nc_sess)));
 
     /* error expected */
     assert_string_equal(str, str2);
@@ -195,7 +201,8 @@ test_unlock(void **state)
     assert_int_equal(LY_SUCCESS, lyd_print_mem(&str, envp, LYD_XML, 0));
 
     /* error expected */
-    assert_int_not_equal(-1, asprintf(&str2, LOCK_FAIL_TEMPLATE, msgid, nc_session_get_id(st->nc_sess2)));
+    assert_int_not_equal(-1, asprintf(&str2, LOCK_FAIL_TEMPLATE, msgid,
+            nc_session_get_id(st->nc_sess2)));
     assert_string_equal(str, str2);
     free(str);
     free(str2);
@@ -312,7 +319,8 @@ test_getconfig(void **state)
     struct lyd_node *envp, *op;
 
     /* try getting config */
-    rpc = nc_rpc_getconfig(NC_DATASTORE_RUNNING, NULL, NC_WD_ALL, NC_PARAMTYPE_CONST);
+    rpc = nc_rpc_getconfig(NC_DATASTORE_RUNNING, NULL,
+            NC_WD_ALL, NC_PARAMTYPE_CONST);
     msgtype = nc_send_rpc(st->nc_sess, rpc, 1000, &msgid);
     assert_int_equal(NC_MSG_RPC, msgtype);
 
