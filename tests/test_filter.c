@@ -125,26 +125,26 @@ test_xpath_basic(void **state)
     /* TODO: Test operators (union mostly) */
 
     RFC2_FILTER_AREA1 =
-            "<get-config xmlns=\"urn:ietf:params:xml:ns:netconf:base:1.0\">\n"  \
-            "  <data>\n"                                                        \
-            "    <top xmlns=\"rfc2\">\n"                                        \
-            "      <protocols>\n"                                               \
-            "        <ospf>\n"                                                  \
-            "          <area>\n"                                                \
-            "            <name>0.0.0.0</name>\n"                                \
-            "            <interfaces>\n"                                        \
-            "              <interface>\n"                                       \
-            "                <name>192.0.2.1</name>\n"                          \
-            "              </interface>\n"                                      \
-            "              <interface>\n"                                       \
-            "                <name>192.0.2.4</name>\n"                          \
-            "              </interface>\n"                                      \
-            "            </interfaces>\n"                                       \
-            "          </area>\n"                                               \
-            "        </ospf>\n"                                                 \
-            "      </protocols>\n"                                              \
-            "    </top>\n"                                                      \
-            "  </data>\n"                                                       \
+            "<get-config xmlns=\"urn:ietf:params:xml:ns:netconf:base:1.0\">\n" \
+            "  <data>\n"                                                       \
+            "    <top xmlns=\"rfc2\">\n"                                       \
+            "      <protocols>\n"                                              \
+            "        <ospf>\n"                                                 \
+            "          <area>\n"                                               \
+            "            <name>0.0.0.0</name>\n"                               \
+            "            <interfaces>\n"                                       \
+            "              <interface>\n"                                      \
+            "                <name>192.0.2.1</name>\n"                         \
+            "              </interface>\n"                                     \
+            "              <interface>\n"                                      \
+            "                <name>192.0.2.4</name>\n"                         \
+            "              </interface>\n"                                     \
+            "            </interfaces>\n"                                      \
+            "          </area>\n"                                              \
+            "        </ospf>\n"                                                \
+            "      </protocols>\n"                                             \
+            "    </top>\n"                                                     \
+            "  </data>\n"                                                      \
             "</get-config>\n";
 
     /* Filter by xpath */
