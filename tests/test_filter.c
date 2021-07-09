@@ -69,13 +69,12 @@ local_teardown(void **state)
     assert_int_equal(sr_connect(SR_CONN_DEFAULT, &conn), SR_ERR_OK);
     assert_int_equal(sr_remove_module(conn, "rfc2"), SR_ERR_OK);
     assert_int_equal(sr_remove_module(conn, "filter1"), SR_ERR_OK);
+    assert_int_equal(sr_remove_module(conn, "issue1"), SR_ERR_OK);
     assert_int_equal(sr_disconnect(conn), SR_ERR_OK);
 
     /* close netopeer2 server */
     return np_glob_teardown(state);
 }
-
-/* TODO: Add more modules to test filter on */
 
 static void
 test_xpath_basic(void **state)
@@ -185,11 +184,10 @@ test_xpath_basic(void **state)
 static void
 test_subtree_basic(void **state)
 {
-    /* TODO: Check with multiple configs without namespace */
     struct np_test *st = *state;
     const char *RFC2_COMPLEX_DATA, *RFC2_DELETE_ALL, *RFC2_FILTER_AREA1,
             *subtree1, *F1_DATA, *F1_DELETE_ALL, *F1_SELECTION_NODE_TEST,
-            *F1_SELECTION_NODE_RESULT, *NO_NAMESPACE_FILTER;
+            *F1_SELECTION_NODE_RESULT;
 
     RFC2_COMPLEX_DATA =
             "<top xmlns=\"rfc2\">\n"                      \
@@ -273,51 +271,6 @@ test_subtree_basic(void **state)
             "</get-config>\n";
 
     assert_string_equal(st->str, RFC2_FILTER_AREA1);
-
-    FREE_TEST_VARS(st);
-
-    /* TODO: Returns empty data on "", is that expected? */
-    /* TODO: Similar test is already in test_rpc.c but for get, is it needed? */
-    GET_CONFIG_FILTER(st, NULL);
-
-    const char *RFC2_EMPTY_FILTER =
-            "<get-config xmlns=\"urn:ietf:params:xml:ns:netconf:base:1.0\">\n" \
-            "  <data>\n"                                                       \
-            "    <top xmlns=\"rfc2\">\n"                                       \
-            "      <protocols>\n"                                              \
-            "        <ospf>\n"                                                 \
-            "          <area>\n"                                               \
-            "            <name>0.0.0.0</name>\n"                               \
-            "            <interfaces>\n"                                       \
-            "              <interface>\n"                                      \
-            "                <name>192.0.2.1</name>\n"                         \
-            "              </interface>\n"                                     \
-            "              <interface>\n"                                      \
-            "                <name>192.0.2.4</name>\n"                         \
-            "              </interface>\n"                                     \
-            "            </interfaces>\n"                                      \
-            "          </area>\n"                                              \
-            "          <area>\n"                                               \
-            "            <name>192.168.0.0</name>\n"                           \
-            "            <interfaces>\n"                                       \
-            "              <interface>\n"                                      \
-            "                <name>192.168.0.1</name>\n"                       \
-            "              </interface>\n"                                     \
-            "              <interface>\n"                                      \
-            "                <name>192.168.0.12</name>\n"                      \
-            "              </interface>\n"                                     \
-            "              <interface>\n"                                      \
-            "                <name>192.168.0.25</name>\n"                      \
-            "              </interface>\n"                                     \
-            "            </interfaces>\n"                                      \
-            "          </area>\n"                                              \
-            "        </ospf>\n"                                                \
-            "      </protocols>\n"                                             \
-            "    </top>\n"                                                     \
-            "  </data>\n"                                                      \
-            "</get-config>\n";
-
-    assert_string_equal(st->str, RFC2_EMPTY_FILTER);
 
     FREE_TEST_VARS(st);
 
@@ -419,16 +372,6 @@ test_subtree_basic(void **state)
             "</get-config>\n";
 
     assert_string_equal(st->str, F1_SELECTION_NODE_RESULT);
-
-    FREE_TEST_VARS(st);
-
-    NO_NAMESPACE_FILTER =
-            "<top/>";
-
-    GET_CONFIG_FILTER(st, NO_NAMESPACE_FILTER);
-
-    /* TODO: Change this once wildcards work */
-    printf("||%s||", st->str);
 
     FREE_TEST_VARS(st);
 
