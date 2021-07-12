@@ -431,6 +431,16 @@ test_subtree_basic(void **state)
     FREE_TEST_VARS(st);
 }
 
+static int change_cb(sr_session_ctx_t *session, uint32_t sub_id,
+                     const char *module_name, const char *xpath,
+                     sr_event_t event, uint32_t request_id, void *private_data)
+{
+    (void) session; (void) sub_id; (void) module_name; (void) xpath;
+    (void) event; (void) request_id; (void) private_data;
+    return SR_ERR_OK;
+}
+
+
 static int
 change_serial_num(sr_session_ctx_t *session, uint32_t sub_id,
                       const char *module_name, const char *path,
@@ -453,17 +463,46 @@ static void
 test_get(void **state)
 {
     struct np_test *st = *state;
+    char *filter, *expected;
 
     /* TODO: move to state, setup and teardown*/
     sr_subscription_ctx_t *sub = NULL;
 
-    /* TODO: Remove */
-    /* sr_log_stderr(SR_LL_DBG); */
     assert_int_equal(SR_ERR_OK,
         sr_oper_get_items_subscribe(st->sr_sess, "issue1",
             "/issue1:hardware/component/serial-num",
             change_serial_num, NULL,
             SR_SUBSCR_DEFAULT, &sub));
+
+    assert_int_equal(SR_ERR_OK,
+        sr_module_change_subscribe(st->sr_sess, "issue1",
+            NULL, change_cb, NULL, 0,
+            SR_SUBSCR_CTX_REUSE, &sub));
+
+    filter =
+        "<hardware xmlns=\"i1\">\n"             \
+        "  <component>\n"                       \
+        "    <serial-num/>"                     \
+        "  </component>\n"                      \
+        "</hardware>";
+
+    GET_FILTER(st, filter);
+
+    expected =
+        "<get xmlns=\"urn:ietf:params:xml:ns:netconf:base:1.0\">\n" \
+        "  <data>\n"                                                \
+        "    <hardware xmlns=\"i1\">\n"                             \
+        "      <component>\n"                                       \
+        "        <name>ComponentName</name>\n"                      \
+        "        <serial-num>1234</serial-num>\n"                   \
+        "      </component>\n"                                      \
+        "    </hardware>\n"                                         \
+        "  </data>\n"                                               \
+        "</get>\n";
+
+    assert_string_equal(st->str, expected);
+
+    FREE_TEST_VARS(st);
 
     sr_unsubscribe(sub);
 }
