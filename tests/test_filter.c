@@ -40,7 +40,7 @@ static void
 setup_data(void **state)
 {
     struct np_test *st = *state;
-    char *RFC2_COMPLEX_DATA, *F1_DATA, *I1_DATA;
+    char *RFC2_COMPLEX_DATA, *X1_DATA, *F1_DATA, *I1_DATA;
 
     RFC2_COMPLEX_DATA =
             "<top xmlns=\"rfc2\">\n"                      \
@@ -76,6 +76,20 @@ setup_data(void **state)
             "</top>\n";
 
     SR_EDIT(st, RFC2_COMPLEX_DATA);
+
+    X1_DATA =
+        "<top xmlns=\"x1\">\n"                  \
+        "  <item>\n"                            \
+        "    <price>2</price>\n"                \
+        "    <price>3</price>\n"                \
+        "    <price>4</price>\n"                \
+        "    <price>6</price>\n"                \
+        "    <price>8</price>\n"                \
+        "    <price>13</price>\n"               \
+        "  </item>\n"                           \
+        "</top>\n";
+
+    SR_EDIT(st, X1_DATA);
 
     I1_DATA =
             "<hardware xmlns=\"i1\">\n"             \
@@ -166,7 +180,8 @@ local_setup(void **state)
     const char *features[] = {NULL};
     const char *module1 = NP_TEST_MODULE_DIR "/rfc2.yang";
     const char *module2 = NP_TEST_MODULE_DIR "/filter1.yang";
-    const char *module3 = NP_TEST_MODULE_DIR "/issue1.yang";
+    const char *module3 = NP_TEST_MODULE_DIR "/xpath.yang";
+    const char *module4 = NP_TEST_MODULE_DIR "/issue1.yang";
     int rv;
 
     /* setup environment necessary for installing module */
@@ -180,6 +195,8 @@ local_setup(void **state)
     assert_int_equal(sr_install_module(conn, module2, NULL, features),
             SR_ERR_OK);
     assert_int_equal(sr_install_module(conn, module3, NULL, features),
+            SR_ERR_OK);
+    assert_int_equal(sr_install_module(conn, module4, NULL, features),
             SR_ERR_OK);
     assert_int_equal(sr_disconnect(conn), SR_ERR_OK);
 
@@ -213,13 +230,21 @@ static void
 teardown_data(void **state)
 {
     struct np_test *st = *state;
-    char *RFC2_REMOVE_ALL, *I1_REMOVE_ALL, *F1_REMOVE_ALL;
+    char *RFC2_REMOVE_ALL, *X1_REMOVE, *I1_REMOVE_ALL, *F1_REMOVE_ALL;
 
     RFC2_REMOVE_ALL =
             "<top xmlns=\"rfc2\""                                   \
             "xmlns:xc=\"urn:ietf:params:xml:ns:netconf:base:1.0\""  \
             "xc:operation=\"remove\">"                              \
             "</top>";
+
+    SR_EDIT(st, RFC2_REMOVE_ALL);
+
+    RFC2_REMOVE_ALL =
+        "<top xmlns=\"x1\""                                     \
+        "xmlns:xc=\"urn:ietf:params:xml:ns:netconf:base:1.0\""  \
+        "xc:operation=\"remove\">"                              \
+        "</top>";
 
     SR_EDIT(st, RFC2_REMOVE_ALL);
 
@@ -260,6 +285,7 @@ local_teardown(void **state)
     /* connect to server and remove test modules */
     assert_int_equal(sr_connect(SR_CONN_DEFAULT, &conn), SR_ERR_OK);
     assert_int_equal(sr_remove_module(conn, "rfc2"), SR_ERR_OK);
+    assert_int_equal(sr_remove_module(conn, "xpath"), SR_ERR_OK);
     assert_int_equal(sr_remove_module(conn, "filter1"), SR_ERR_OK);
     assert_int_equal(sr_remove_module(conn, "issue1"), SR_ERR_OK);
     assert_int_equal(sr_disconnect(conn), SR_ERR_OK);
@@ -272,11 +298,9 @@ static void
 test_xpath_basic(void **state)
 {
     struct np_test *st = *state;
-    const char *RFC2_FILTER_AREA1;
+    const char *expected;
 
-    /* TODO: Test operators (union mostly) */
-
-    RFC2_FILTER_AREA1 =
+    expected =
             "<get-config xmlns=\"urn:ietf:params:xml:ns:netconf:base:1.0\">\n" \
             "  <data>\n"                                                       \
             "    <top xmlns=\"rfc2\">\n"                                       \
@@ -299,19 +323,74 @@ test_xpath_basic(void **state)
             "  </data>\n"                                                      \
             "</get-config>\n";
 
-    /* Filter by xpath */
+    /* Filter first by xpath */
     GET_CONFIG_FILTER(st, "/top/protocols/ospf/area[1]");
-    assert_string_equal(st->str, RFC2_FILTER_AREA1);
+    assert_string_equal(st->str, expected);
     FREE_TEST_VARS(st);
 
     /* since there are two last()-1 should be same as 1 */
     GET_CONFIG_FILTER(st, "/top/protocols/ospf/area[last()-1]");
-    assert_string_equal(st->str, RFC2_FILTER_AREA1);
+    assert_string_equal(st->str, expected);
     FREE_TEST_VARS(st);
 
     /* filter by area name same as the two before */
     GET_CONFIG_FILTER(st, "/top/protocols/ospf/area[name='0.0.0.0']");
-    assert_string_equal(st->str, RFC2_FILTER_AREA1);
+    assert_string_equal(st->str, expected);
+    FREE_TEST_VARS(st);
+
+    /* use arithmetic operators should also be the first */
+    GET_CONFIG_FILTER(st, "/top/protocols/ospf/area[3-2]");
+    assert_string_equal(st->str, expected);
+    FREE_TEST_VARS(st);
+
+    GET_CONFIG_FILTER(st, "/top/protocols/ospf/area[5 mod 2]");
+    assert_string_equal(st->str, expected);
+    FREE_TEST_VARS(st);
+
+    GET_CONFIG_FILTER(st, "/top/protocols/ospf/area[-1 + 2]");
+    assert_string_equal(st->str, expected);
+    FREE_TEST_VARS(st);
+
+    GET_CONFIG_FILTER(st, "/top/protocols/ospf/area[name!='192.168.0.0']");
+    assert_string_equal(st->str, expected);
+    FREE_TEST_VARS(st);
+
+    /* TODO: use boolean operators */
+
+    expected =
+            "<get-config "                                                     \
+            "xmlns=\"urn:ietf:params:xml:ns:netconf:base:1.0\">\n"             \
+            "  <data>\n"                                                       \
+            "    <hardware xmlns=\"i1\">\n"                                    \
+            "      <component>\n"                                              \
+            "        <name>ComponentName</name>\n"                             \
+            "        <class>O-RAN-RADIO</class>\n"                             \
+            "      </component>\n"                                             \
+            "    </hardware>\n"                                                \
+            "    <top xmlns=\"rfc2\">\n"                                       \
+            "      <protocols>\n"                                              \
+            "        <ospf>\n"                                                 \
+            "          <area>\n"                                               \
+            "            <name>0.0.0.0</name>\n"                               \
+            "            <interfaces>\n"                                       \
+            "              <interface>\n"                                      \
+            "                <name>192.0.2.1</name>\n"                         \
+            "              </interface>\n"                                     \
+            "              <interface>\n"                                      \
+            "                <name>192.0.2.4</name>\n"                         \
+            "              </interface>\n"                                     \
+            "            </interfaces>\n"                                      \
+            "          </area>\n"                                              \
+            "        </ospf>\n"                                                \
+            "      </protocols>\n"                                             \
+            "    </top>\n"                                                     \
+            "  </data>\n"                                                      \
+            "</get-config>\n";
+
+    /* test union */
+    GET_CONFIG_FILTER(st, "/top/protocols/ospf/area[name='0.0.0.0']|"
+            "/hardware/component[name='ComponentName']");
+    assert_string_equal(st->str, expected);
     FREE_TEST_VARS(st);
 }
 
