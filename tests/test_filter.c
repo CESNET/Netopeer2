@@ -39,10 +39,6 @@
 static void
 setup_data(void **state)
 {
-    /*
-     * TODO: Change np2 edit-config rpc calls into direct sr calls
-     * TODO: add return value
-     */
     struct np_test *st = *state;
     char *RFC2_COMPLEX_DATA, *F1_DATA, *I1_DATA;
 
@@ -79,13 +75,7 @@ setup_data(void **state)
             "  </protocols>\n"                            \
             "</top>\n";
 
-    /* Send rpc editing rfc2 */
-    SEND_EDIT_RPC(st, RFC2_COMPLEX_DATA);
-
-    /* Receive a reply, should succeed */
-    ASSERT_OK_REPLY(st);
-
-    FREE_TEST_VARS(st);
+    SR_EDIT(st, RFC2_COMPLEX_DATA);
 
     I1_DATA =
             "<hardware xmlns=\"i1\">\n"             \
@@ -95,11 +85,7 @@ setup_data(void **state)
             "  </component>\n"                      \
             "</hardware>\n";
 
-    SEND_EDIT_RPC(st, I1_DATA);
-
-    ASSERT_OK_REPLY(st);
-
-    FREE_TEST_VARS(st);
+    SR_EDIT(st, I1_DATA);
 
     F1_DATA =
             "<top xmlns=\"f1\">\n"                           \
@@ -144,13 +130,7 @@ setup_data(void **state)
             "  </devices>\n"                                 \
             "</top>\n";
 
-    /* Send rpc merging data into f1 */
-    SEND_EDIT_RPC(st, F1_DATA);
-
-    /* Receive a reply, should succeed */
-    ASSERT_OK_REPLY(st);
-
-    FREE_TEST_VARS(st);
+    SR_EDIT(st, F1_DATA);
 }
 
 static int
@@ -212,6 +192,7 @@ local_setup(void **state)
         assert_int_equal(
                 sr_session_start(st->conn, SR_DS_RUNNING, &st->sr_sess),
                 SR_ERR_OK);
+        assert_non_null(st->ctx = sr_get_context(st->conn));
         setup_data(state);
 
         assert_int_equal(SR_ERR_OK,
@@ -240,27 +221,7 @@ teardown_data(void **state)
             "xc:operation=\"remove\">"                              \
             "</top>";
 
-    /* Send rpc removing part of the data from module rfc2 */
-    SEND_EDIT_RPC(st, RFC2_REMOVE_ALL);
-
-    /* Receive a reply, should succeed */
-    ASSERT_OK_REPLY(st);
-
-    FREE_TEST_VARS(st);
-
-    RFC2_REMOVE_ALL =
-            "<top xmlns=\"rfc2\""                                   \
-            "xmlns:xc=\"urn:ietf:params:xml:ns:netconf:base:1.0\""  \
-            "xc:operation=\"remove\">"                              \
-            "</top>";
-
-    /* Send rpc deleting part of the data from module rfc2 */
-    SEND_EDIT_RPC(st, RFC2_REMOVE_ALL);
-
-    /* Receive a reply, should succeed */
-    ASSERT_OK_REPLY(st);
-
-    FREE_TEST_VARS(st);
+    SR_EDIT(st, RFC2_REMOVE_ALL);
 
     F1_REMOVE_ALL =
             "<top xmlns=\"f1\""                                         \
@@ -268,13 +229,7 @@ teardown_data(void **state)
             "xc:operation=\"remove\">"                                  \
             "</top>";
 
-    /* Send rpc deleting part of the data from module f1 */
-    SEND_EDIT_RPC(st, F1_REMOVE_ALL);
-
-    /* Receive a reply, should succeed */
-    ASSERT_OK_REPLY(st);
-
-    FREE_TEST_VARS(st);
+    SR_EDIT(st, F1_REMOVE_ALL);
 
     I1_REMOVE_ALL =
             "<hardware xmlns=\"i1\""                                        \
@@ -282,20 +237,12 @@ teardown_data(void **state)
             "xc:operation=\"remove\">"                                      \
             "</hardware>\n";
 
-    SEND_EDIT_RPC(st, I1_REMOVE_ALL);
-
-    ASSERT_OK_REPLY(st);
-
-    FREE_TEST_VARS(st);
+    SR_EDIT(st, I1_REMOVE_ALL);
 }
 
 static int
 local_teardown(void **state)
 {
-    /*
-     * TODO: Change np2 edit-config rpc calls into direct sr calls
-     * TODO: add return value
-     */
     struct np_test *st = *state;
     sr_conn_ctx_t *conn;
 

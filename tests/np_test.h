@@ -42,11 +42,11 @@
     nc_rpc_free(state->rpc);                    \
     lyd_free_tree(state->envp);                 \
     lyd_free_tree(state->op);                   \
-    if(st->str)                                 \
+    if (state->str)                             \
     {                                           \
-        free(st->str);                          \
+        free(state->str);                       \
     }                                           \
-    st->str = NULL;
+    state->str = NULL;
 
 #define ASSERT_OK_REPLY(state)                                                 \
     state->msgtype = nc_recv_reply(state->nc_sess, state->rpc, state->msgid,   \
@@ -76,35 +76,35 @@
     assert_null(state->op);                                                    \
     assert_string_equal(LYD_NAME(lyd_child(state->envp)), "rpc-error");
 
-#define GET_CONFIG_FILTER(state, filter)                                    \
-    state->rpc = nc_rpc_getconfig(NC_DATASTORE_RUNNING, filter,             \
-                                  NC_WD_ALL, NC_PARAMTYPE_CONST);           \
-    state->msgtype = nc_send_rpc(st->nc_sess, state->rpc,                   \
-                                 1000, &state->msgid);                      \
-    assert_int_equal(NC_MSG_RPC, state->msgtype);                           \
-    state->msgtype = nc_recv_reply(st->nc_sess, state->rpc, state->msgid,   \
-                                   2000, &state->envp, &state->op);         \
-    assert_int_equal(state->msgtype, NC_MSG_REPLY);                         \
-    assert_non_null(state->op);                                             \
-    assert_non_null(state->envp);                                           \
-    assert_string_equal(LYD_NAME(lyd_child(state->op)), "data");            \
-    assert_int_equal(LY_SUCCESS,                                            \
+#define GET_CONFIG_FILTER(state, filter)                                       \
+    state->rpc = nc_rpc_getconfig(NC_DATASTORE_RUNNING, filter,                \
+                                  NC_WD_ALL, NC_PARAMTYPE_CONST);              \
+    state->msgtype = nc_send_rpc(state->nc_sess, state->rpc,                   \
+                                 1000, &state->msgid);                         \
+    assert_int_equal(NC_MSG_RPC, state->msgtype);                              \
+    state->msgtype = nc_recv_reply(state->nc_sess, state->rpc, state->msgid,   \
+                                   2000, &state->envp, &state->op);            \
+    assert_int_equal(state->msgtype, NC_MSG_REPLY);                            \
+    assert_non_null(state->op);                                                \
+    assert_non_null(state->envp);                                              \
+    assert_string_equal(LYD_NAME(lyd_child(state->op)), "data");               \
+    assert_int_equal(LY_SUCCESS,                                               \
                      lyd_print_mem(&state->str, state->op, LYD_XML, 0));
 
 #define GET_CONFIG(state) GET_CONFIG_FILTER(state, NULL);
 
-#define GET_FILTER(state, filter)                                    \
-    state->rpc = nc_rpc_get(filter, NC_WD_ALL, NC_PARAMTYPE_CONST);         \
-    state->msgtype = nc_send_rpc(st->nc_sess, state->rpc,                   \
-                                 1000, &state->msgid);                      \
-    assert_int_equal(NC_MSG_RPC, state->msgtype);                           \
-    state->msgtype = nc_recv_reply(st->nc_sess, state->rpc, state->msgid,   \
-                                   2000, &state->envp, &state->op);         \
-    assert_int_equal(state->msgtype, NC_MSG_REPLY);                         \
-    assert_non_null(state->op);                                             \
-    assert_non_null(state->envp);                                           \
-    assert_string_equal(LYD_NAME(lyd_child(state->op)), "data");            \
-    assert_int_equal(LY_SUCCESS,                                            \
+#define GET_FILTER(state, filter)                                              \
+    state->rpc = nc_rpc_get(filter, NC_WD_ALL, NC_PARAMTYPE_CONST);            \
+    state->msgtype = nc_send_rpc(state->nc_sess, state->rpc,                   \
+                                 1000, &state->msgid);                         \
+    assert_int_equal(NC_MSG_RPC, state->msgtype);                              \
+    state->msgtype = nc_recv_reply(state->nc_sess, state->rpc, state->msgid,   \
+                                   2000, &state->envp, &state->op);            \
+    assert_int_equal(state->msgtype, NC_MSG_REPLY);                            \
+    assert_non_null(state->op);                                                \
+    assert_non_null(state->envp);                                              \
+    assert_string_equal(LYD_NAME(lyd_child(state->op)), "data");               \
+    assert_int_equal(LY_SUCCESS,                                               \
                      lyd_print_mem(&state->str, state->op, LYD_XML, 0));
 
 #define SEND_EDIT_RPC(state, module)                                           \
@@ -112,7 +112,7 @@
                              NC_RPC_EDIT_TESTOPT_SET,                          \
                              NC_RPC_EDIT_ERROPT_ROLLBACK, module,              \
                              NC_PARAMTYPE_CONST);                              \
-    state->msgtype = nc_send_rpc(st->nc_sess, state->rpc,                      \
+    state->msgtype = nc_send_rpc(state->nc_sess, state->rpc,                   \
                                  1000, &state->msgid);                         \
     assert_int_equal(NC_MSG_RPC, state->msgtype);
 
@@ -126,12 +126,26 @@
     assert_string_equal(state->str, EMPTY_GETCONFIG);   \
     FREE_TEST_VARS(state);
 
+#define SR_EDIT(state, data)                                                   \
+    assert_int_equal(LY_SUCCESS,                                               \
+                     lyd_parse_data_mem(state->ctx, data,                      \
+                                        LYD_XML, LYD_PARSE_ONLY, 0,            \
+                                        &state->node));                        \
+    assert_non_null(state->node);                                              \
+    assert_int_equal(SR_ERR_OK,                                                \
+                     sr_edit_batch(state->sr_sess, state->node, "merge"));     \
+    lyd_free_tree(state->node);                                                \
+    assert_int_equal(SR_ERR_OK,                                                \
+                     sr_apply_changes(state->sr_sess, 0));
+
 /* test state structure */
 struct np_test {
     pid_t server_pid;
     sr_conn_ctx_t *conn;
     sr_session_ctx_t *sr_sess;
     sr_subscription_ctx_t *sub;
+    const struct ly_ctx *ctx;
+    struct lyd_node *node;
     struct nc_session *nc_sess;
     struct nc_session *nc_sess2;
     struct nc_rpc *rpc;
