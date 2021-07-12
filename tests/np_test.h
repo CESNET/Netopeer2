@@ -131,6 +131,7 @@ struct np_test {
     pid_t server_pid;
     sr_conn_ctx_t *conn;
     sr_session_ctx_t *sr_sess;
+    sr_subscription_ctx_t *sub;
     struct nc_session *nc_sess;
     struct nc_session *nc_sess2;
     struct nc_rpc *rpc;

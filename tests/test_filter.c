@@ -88,12 +88,12 @@ setup_data(void **state)
     FREE_TEST_VARS(st);
 
     I1_DATA =
-        "<hardware xmlns=\"i1\">\n"             \
-        "  <component>\n"                       \
-        "    <name>ComponentName</name>\n"      \
-        "    <class>O-RAN-RADIO</class>\n"      \
-        "  </component>\n"                      \
-        "</hardware>\n";
+            "<hardware xmlns=\"i1\">\n"             \
+            "  <component>\n"                       \
+            "    <name>ComponentName</name>\n"      \
+            "    <class>O-RAN-RADIO</class>\n"      \
+            "  </component>\n"                      \
+            "</hardware>\n";
 
     SEND_EDIT_RPC(st, I1_DATA);
 
@@ -154,6 +154,31 @@ setup_data(void **state)
 }
 
 static int
+change_cb(sr_session_ctx_t *session, uint32_t sub_id,
+        const char *module_name, const char *xpath,
+        sr_event_t event, uint32_t request_id, void *private_data)
+{
+    (void) session; (void) sub_id; (void) module_name; (void) xpath;
+    (void) event; (void) request_id; (void) private_data;
+    return SR_ERR_OK;
+}
+
+static int
+change_serial_num(sr_session_ctx_t *session, uint32_t sub_id,
+        const char *module_name, const char *path,
+        const char *request_xpath, uint32_t request_id,
+        struct lyd_node **parent, void *private_data)
+{
+    (void) session; (void) sub_id; (void) module_name; (void) path;
+    (void) request_xpath; (void) request_id; (void) private_data;
+    if (!lyd_new_path(*parent, NULL, "serial-num", "1234", 0, NULL)) {
+        return SR_ERR_OK;
+    } else {
+        return SR_ERR_LY;
+    }
+}
+
+static int
 local_setup(void **state)
 {
     struct np_test *st;
@@ -179,15 +204,26 @@ local_setup(void **state)
     assert_int_equal(sr_disconnect(conn), SR_ERR_OK);
 
     /* setup netopeer2 server */
-    if (!(rv = np_glob_setup_np2(state)))
-    {
+    if (!(rv = np_glob_setup_np2(state))) {
         /* state is allocated in np_glob_setup_np2 have to set here */
         st = *state;
         /* Open connection to start a session for the tests */
         assert_int_equal(sr_connect(SR_CONN_DEFAULT, &st->conn), SR_ERR_OK);
-        assert_int_equal(sr_session_start(st->conn, SR_DS_RUNNING, &st->sr_sess),
+        assert_int_equal(
+                sr_session_start(st->conn, SR_DS_RUNNING, &st->sr_sess),
                 SR_ERR_OK);
         setup_data(state);
+
+        assert_int_equal(SR_ERR_OK,
+                sr_oper_get_items_subscribe(st->sr_sess, "issue1",
+                "/issue1:hardware/component/serial-num",
+                change_serial_num, NULL,
+                SR_SUBSCR_DEFAULT, &st->sub));
+
+        assert_int_equal(SR_ERR_OK,
+                sr_module_change_subscribe(st->sr_sess, "issue1",
+                NULL, change_cb, NULL, 0,
+                SR_SUBSCR_CTX_REUSE, &st->sub));
     }
     return rv;
 }
@@ -241,10 +277,10 @@ teardown_data(void **state)
     FREE_TEST_VARS(st);
 
     I1_REMOVE_ALL =
-        "<hardware xmlns=\"i1\""                                        \
-        "xmlns:xc=\"urn:ietf:params:xml:ns:netconf:base:1.0\""          \
-        "xc:operation=\"remove\">"                                      \
-        "</hardware>\n";
+            "<hardware xmlns=\"i1\""                                        \
+            "xmlns:xc=\"urn:ietf:params:xml:ns:netconf:base:1.0\""          \
+            "xc:operation=\"remove\">"                                      \
+            "</hardware>\n";
 
     SEND_EDIT_RPC(st, I1_REMOVE_ALL);
 
@@ -266,6 +302,9 @@ local_teardown(void **state)
     teardown_data(state);
     /* Check if empty config */
     ASSERT_EMPTY_CONFIG(st);
+
+    /* Unsubscribe */
+    sr_unsubscribe(st->sub);
 
     /* Close the session and connection needed for tests */
     assert_int_equal(sr_session_stop(st->sr_sess), SR_ERR_OK);
@@ -431,80 +470,36 @@ test_subtree_basic(void **state)
     FREE_TEST_VARS(st);
 }
 
-static int change_cb(sr_session_ctx_t *session, uint32_t sub_id,
-                     const char *module_name, const char *xpath,
-                     sr_event_t event, uint32_t request_id, void *private_data)
-{
-    (void) session; (void) sub_id; (void) module_name; (void) xpath;
-    (void) event; (void) request_id; (void) private_data;
-    return SR_ERR_OK;
-}
-
-
-static int
-change_serial_num(sr_session_ctx_t *session, uint32_t sub_id,
-                      const char *module_name, const char *path,
-                      const char *request_xpath, uint32_t request_id,
-                      struct lyd_node **parent, void *private_data)
-{
-    (void) session; (void) sub_id; (void) module_name; (void) path;
-    (void) request_xpath; (void) request_id; (void) private_data;
-    if(!lyd_new_path(*parent, NULL, "serial-num", "1234", 0, NULL))
-    {
-        return SR_ERR_OK;
-    }
-    else
-    {
-        return SR_ERR_LY;
-    }
-}
-
 static void
 test_get(void **state)
 {
     struct np_test *st = *state;
     char *filter, *expected;
 
-    /* TODO: move to state, setup and teardown*/
-    sr_subscription_ctx_t *sub = NULL;
-
-    assert_int_equal(SR_ERR_OK,
-        sr_oper_get_items_subscribe(st->sr_sess, "issue1",
-            "/issue1:hardware/component/serial-num",
-            change_serial_num, NULL,
-            SR_SUBSCR_DEFAULT, &sub));
-
-    assert_int_equal(SR_ERR_OK,
-        sr_module_change_subscribe(st->sr_sess, "issue1",
-            NULL, change_cb, NULL, 0,
-            SR_SUBSCR_CTX_REUSE, &sub));
-
     filter =
-        "<hardware xmlns=\"i1\">\n"             \
-        "  <component>\n"                       \
-        "    <serial-num/>"                     \
-        "  </component>\n"                      \
-        "</hardware>";
+            "<hardware xmlns=\"i1\">\n"             \
+            "  <component>\n"                       \
+            "    <serial-num/>"                     \
+            "  </component>\n"                      \
+            "</hardware>";
 
     GET_FILTER(st, filter);
 
     expected =
-        "<get xmlns=\"urn:ietf:params:xml:ns:netconf:base:1.0\">\n" \
-        "  <data>\n"                                                \
-        "    <hardware xmlns=\"i1\">\n"                             \
-        "      <component>\n"                                       \
-        "        <name>ComponentName</name>\n"                      \
-        "        <serial-num>1234</serial-num>\n"                   \
-        "      </component>\n"                                      \
-        "    </hardware>\n"                                         \
-        "  </data>\n"                                               \
-        "</get>\n";
+            "<get xmlns=\"urn:ietf:params:xml:ns:netconf:base:1.0\">\n" \
+            "  <data>\n"                                                \
+            "    <hardware xmlns=\"i1\">\n"                             \
+            "      <component>\n"                                       \
+            "        <name>ComponentName</name>\n"                      \
+            "        <serial-num>1234</serial-num>\n"                   \
+            "      </component>\n"                                      \
+            "    </hardware>\n"                                         \
+            "  </data>\n"                                               \
+            "</get>\n";
 
     assert_string_equal(st->str, expected);
 
     FREE_TEST_VARS(st);
-
-    sr_unsubscribe(sub);
 }
 
 int
