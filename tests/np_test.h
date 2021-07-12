@@ -27,6 +27,7 @@
 #include <unistd.h>
 
 #include <nc_client.h>
+#include <sysrepo.h>
 
 /* global setpu for environment variables for sysrepo*/
 #define NP_GLOB_SETUP_ENV_FUNC \
@@ -92,6 +93,20 @@
 
 #define GET_CONFIG(state) GET_CONFIG_FILTER(state, NULL);
 
+#define GET_FILTER(state, filter)                                    \
+    state->rpc = nc_rpc_get(filter, NC_WD_ALL, NC_PARAMTYPE_CONST);         \
+    state->msgtype = nc_send_rpc(st->nc_sess, state->rpc,                   \
+                                 1000, &state->msgid);                      \
+    assert_int_equal(NC_MSG_RPC, state->msgtype);                           \
+    state->msgtype = nc_recv_reply(st->nc_sess, state->rpc, state->msgid,   \
+                                   2000, &state->envp, &state->op);         \
+    assert_int_equal(state->msgtype, NC_MSG_REPLY);                         \
+    assert_non_null(state->op);                                             \
+    assert_non_null(state->envp);                                           \
+    assert_string_equal(LYD_NAME(lyd_child(state->op)), "data");            \
+    assert_int_equal(LY_SUCCESS,                                            \
+                     lyd_print_mem(&state->str, state->op, LYD_XML, 0));
+
 #define SEND_EDIT_RPC(state, module)                                           \
     state->rpc = nc_rpc_edit(NC_DATASTORE_RUNNING, NC_RPC_EDIT_DFLTOP_MERGE,   \
                              NC_RPC_EDIT_TESTOPT_SET,                          \
@@ -114,6 +129,8 @@
 /* test state structure */
 struct np_test {
     pid_t server_pid;
+    sr_conn_ctx_t *conn;
+    sr_session_ctx_t *sr_sess;
     struct nc_session *nc_sess;
     struct nc_session *nc_sess2;
     struct nc_rpc *rpc;
