@@ -447,6 +447,64 @@ test_get(void **state)
     assert_string_equal(st->str, expected);
 
     FREE_TEST_VARS(st);
+
+    filter = "<hardware xmlns=\"i1\"/>\n";
+
+    GET_FILTER(st, filter);
+
+    expected =
+            "<get xmlns=\"urn:ietf:params:xml:ns:netconf:base:1.0\">\n" \
+            "  <data>\n"                                                \
+            "    <hardware xmlns=\"i1\">\n"                             \
+            "      <component>\n"                                       \
+            "        <name>ComponentName</name>\n"                      \
+            "        <class>O-RAN-RADIO</class>\n"                      \
+            "        <serial-num>1234</serial-num>\n"                   \
+            "      </component>\n"                                      \
+            "    </hardware>\n"                                         \
+            "  </data>\n"                                               \
+            "</get>\n";
+
+    assert_string_equal(st->str, expected);
+
+    FREE_TEST_VARS(st);
+
+    filter =
+        "<hardware xmlns=\"i1\">\n"             \
+        "  <component>\n"                       \
+        "    <class>O-RAN-RADIO</class>\n"      \
+        "  </component>\n"                      \
+        "</hardware>\n" ;
+
+    st->rpc = nc_rpc_get(filter, NC_WD_ALL, NC_PARAMTYPE_CONST);
+    st->msgtype = nc_send_rpc(st->nc_sess, st->rpc,
+                                 1000, &st->msgid);
+    assert_int_equal(NC_MSG_RPC, st->msgtype);
+    st->msgtype = nc_recv_reply(st->nc_sess, st->rpc, st->msgid,
+                                   2000, &st->envp, &st->op);
+    assert_int_equal(st->msgtype, NC_MSG_REPLY);
+    assert_non_null(st->op);
+    assert_non_null(st->envp);
+    assert_string_equal(LYD_NAME(lyd_child(st->op)), "data");
+    assert_int_equal(LY_SUCCESS,
+                     lyd_print_mem(&st->str, st->op, LYD_XML, 0));
+
+    expected =
+            "<get xmlns=\"urn:ietf:params:xml:ns:netconf:base:1.0\">\n" \
+            "  <data>\n"                                                \
+            "    <hardware xmlns=\"i1\">\n"                             \
+            "      <component>\n"                                       \
+            "        <name>ComponentName</name>\n"                      \
+            "        <class>O-RAN-RADIO</class>\n"                      \
+            "        <serial-num>1234</serial-num>\n"                   \
+            "      </component>\n"                                      \
+            "    </hardware>\n"                                         \
+            "  </data>\n"                                               \
+            "</get>\n";
+
+    assert_string_equal(st->str, expected);
+
+    FREE_TEST_VARS(st);
 }
 
 int
