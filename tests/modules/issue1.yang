@@ -16,6 +16,11 @@ module issue1 {
         type string;
         config false;
       }
+      container feature {
+        leaf wireless {
+          type string;
+        }
+      }
     }
   }
 }

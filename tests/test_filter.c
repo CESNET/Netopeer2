@@ -78,16 +78,16 @@ setup_data(void **state)
     SR_EDIT(st, RFC2_COMPLEX_DATA);
 
     X1_DATA =
-        "<top xmlns=\"x1\">\n"                  \
-        "  <item>\n"                            \
-        "    <price>2</price>\n"                \
-        "    <price>3</price>\n"                \
-        "    <price>4</price>\n"                \
-        "    <price>6</price>\n"                \
-        "    <price>8</price>\n"                \
-        "    <price>13</price>\n"               \
-        "  </item>\n"                           \
-        "</top>\n";
+            "<top xmlns=\"x1\">\n"                  \
+            "  <item>\n"                            \
+            "    <price>2</price>\n"                \
+            "    <price>3</price>\n"                \
+            "    <price>4</price>\n"                \
+            "    <price>6</price>\n"                \
+            "    <price>8</price>\n"                \
+            "    <price>13</price>\n"               \
+            "  </item>\n"                           \
+            "</top>\n";
 
     SR_EDIT(st, X1_DATA);
 
@@ -96,6 +96,9 @@ setup_data(void **state)
             "  <component>\n"                       \
             "    <name>ComponentName</name>\n"      \
             "    <class>O-RAN-RADIO</class>\n"      \
+            "      <feature>\n"                     \
+            "        <wireless>true</wireless>\n"   \
+            "      </feature>\n"                    \
             "  </component>\n"                      \
             "</hardware>\n";
 
@@ -230,7 +233,7 @@ static void
 teardown_data(void **state)
 {
     struct np_test *st = *state;
-    char *RFC2_REMOVE_ALL, *X1_REMOVE, *I1_REMOVE_ALL, *F1_REMOVE_ALL;
+    char *RFC2_REMOVE_ALL, *X1_REMOVE_ALL, *I1_REMOVE_ALL, *F1_REMOVE_ALL;
 
     RFC2_REMOVE_ALL =
             "<top xmlns=\"rfc2\""                                   \
@@ -240,13 +243,13 @@ teardown_data(void **state)
 
     SR_EDIT(st, RFC2_REMOVE_ALL);
 
-    RFC2_REMOVE_ALL =
-        "<top xmlns=\"x1\""                                     \
-        "xmlns:xc=\"urn:ietf:params:xml:ns:netconf:base:1.0\""  \
-        "xc:operation=\"remove\">"                              \
-        "</top>";
+    X1_REMOVE_ALL =
+            "<top xmlns=\"x1\""                                     \
+            "xmlns:xc=\"urn:ietf:params:xml:ns:netconf:base:1.0\""  \
+            "xc:operation=\"remove\">"                              \
+            "</top>";
 
-    SR_EDIT(st, RFC2_REMOVE_ALL);
+    SR_EDIT(st, X1_REMOVE_ALL);
 
     F1_REMOVE_ALL =
             "<top xmlns=\"f1\""                                         \
@@ -365,6 +368,9 @@ test_xpath_basic(void **state)
             "      <component>\n"                                              \
             "        <name>ComponentName</name>\n"                             \
             "        <class>O-RAN-RADIO</class>\n"                             \
+            "        <feature>\n"                                              \
+            "          <wireless>true</wireless>\n"                            \
+            "        </feature>\n"                                             \
             "      </component>\n"                                             \
             "    </hardware>\n"                                                \
             "    <top xmlns=\"rfc2\">\n"                                       \
@@ -539,6 +545,9 @@ test_get(void **state)
             "        <name>ComponentName</name>\n"                      \
             "        <class>O-RAN-RADIO</class>\n"                      \
             "        <serial-num>1234</serial-num>\n"                   \
+            "        <feature>\n"                                       \
+            "          <wireless>true</wireless>\n"                     \
+            "        </feature>\n"                                      \
             "      </component>\n"                                      \
             "    </hardware>\n"                                         \
             "  </data>\n"                                               \
@@ -552,21 +561,13 @@ test_get(void **state)
             "<hardware xmlns=\"i1\">\n"             \
             "  <component>\n"                       \
             "    <class>O-RAN-RADIO</class>\n"      \
+            "      <feature>\n"                     \
+            "        <wireless/>\n"                 \
+            "      </feature>\n"                    \
             "  </component>\n"                      \
             "</hardware>\n";
 
-    st->rpc = nc_rpc_get(filter, NC_WD_ALL, NC_PARAMTYPE_CONST);
-    st->msgtype = nc_send_rpc(st->nc_sess, st->rpc,
-            1000, &st->msgid);
-    assert_int_equal(NC_MSG_RPC, st->msgtype);
-    st->msgtype = nc_recv_reply(st->nc_sess, st->rpc, st->msgid,
-            2000, &st->envp, &st->op);
-    assert_int_equal(st->msgtype, NC_MSG_REPLY);
-    assert_non_null(st->op);
-    assert_non_null(st->envp);
-    assert_string_equal(LYD_NAME(lyd_child(st->op)), "data");
-    assert_int_equal(LY_SUCCESS,
-            lyd_print_mem(&st->str, st->op, LYD_XML, 0));
+    GET_FILTER(st, filter);
 
     expected =
             "<get xmlns=\"urn:ietf:params:xml:ns:netconf:base:1.0\">\n" \
@@ -576,6 +577,41 @@ test_get(void **state)
             "        <name>ComponentName</name>\n"                      \
             "        <class>O-RAN-RADIO</class>\n"                      \
             "        <serial-num>1234</serial-num>\n"                   \
+            "        <feature>\n"                                       \
+            "          <wireless>true</wireless>\n"                     \
+            "        </feature>\n"                                      \
+            "      </component>\n"                                      \
+            "    </hardware>\n"                                         \
+            "  </data>\n"                                               \
+            "</get>\n";
+
+    assert_string_equal(st->str, expected);
+
+    FREE_TEST_VARS(st);
+
+    filter =
+            "<hardware xmlns=\"i1\">\n"             \
+            "  <component>\n"                       \
+            "    <class>O-RAN-RADIO</class>\n"      \
+            "      <feature>\n"                     \
+            "        <wireless>true</wireless>\n"   \
+            "      </feature>\n"                    \
+            "  </component>\n"                      \
+            "</hardware>\n";
+
+    GET_FILTER(st, filter);
+
+    expected =
+            "<get xmlns=\"urn:ietf:params:xml:ns:netconf:base:1.0\">\n" \
+            "  <data>\n"                                                \
+            "    <hardware xmlns=\"i1\">\n"                             \
+            "      <component>\n"                                       \
+            "        <name>ComponentName</name>\n"                      \
+            "        <class>O-RAN-RADIO</class>\n"                      \
+            "        <serial-num>1234</serial-num>\n"                   \
+            "        <feature>\n"                                       \
+            "          <wireless>true</wireless>\n"                     \
+            "        </feature>\n"                                      \
             "      </component>\n"                                      \
             "    </hardware>\n"                                         \
             "  </data>\n"                                               \
@@ -592,8 +628,7 @@ main(void)
     const struct CMUnitTest tests[] = {
         cmocka_unit_test(test_xpath_basic),
         cmocka_unit_test(test_subtree_basic),
-        /* TODO: uncomment test */
-        /* cmocka_unit_test(test_get), */
+        cmocka_unit_test(test_get),
     };
 
     nc_verbosity(NC_VERB_WARNING);

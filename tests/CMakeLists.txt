@@ -56,4 +56,6 @@ endif()
 add_custom_target(test_clean
     COMMAND rm -rf ${CMAKE_CURRENT_BINARY_DIR}/repositories
     COMMAND rm -rf /dev/shm/_tests_np_*
+    COMMAND rm -rf ${CMAKE_CURRENT_BINARY_DIR}/netopeer2-server.sock
+    COMMAND rm -rf ${CMAKE_CURRENT_BINARY_DIR}/netopeer2-server.pid
 )
