@@ -40,7 +40,7 @@ static void
 setup_data(void **state)
 {
     struct np_test *st = *state;
-    char *EX2_COMPLEX_DATA, *X1_DATA, *F1_DATA, *I1_DATA;
+    char *EX2_COMPLEX_DATA, *X1_DATA, *F1_DATA, *I1_DATA, *ED1_DATA;
 
     EX2_COMPLEX_DATA =
             "<top xmlns=\"ex2\">\n"                       \
@@ -158,6 +158,10 @@ setup_data(void **state)
             "</top>\n";
 
     SR_EDIT(st, F1_DATA);
+
+    ED1_DATA = "<first xmlns=\"ed1\">Test</first>\n";
+
+    SR_EDIT(st, ED1_DATA);
 }
 
 static int
@@ -195,6 +199,7 @@ local_setup(void **state)
     const char *module2 = NP_TEST_MODULE_DIR "/filter1.yang";
     const char *module3 = NP_TEST_MODULE_DIR "/xpath.yang";
     const char *module4 = NP_TEST_MODULE_DIR "/issue1.yang";
+    const char *module5 = NP_TEST_MODULE_DIR "/edit1.yang";
     int rv;
 
     /* setup environment necessary for installing module */
@@ -210,6 +215,8 @@ local_setup(void **state)
     assert_int_equal(sr_install_module(conn, module3, NULL, features),
             SR_ERR_OK);
     assert_int_equal(sr_install_module(conn, module4, NULL, features),
+            SR_ERR_OK);
+    assert_int_equal(sr_install_module(conn, module5, NULL, features),
             SR_ERR_OK);
     assert_int_equal(sr_disconnect(conn), SR_ERR_OK);
 
@@ -243,7 +250,8 @@ static void
 teardown_data(void **state)
 {
     struct np_test *st = *state;
-    char *EX2_REMOVE_ALL, *X1_REMOVE_ALL, *I1_REMOVE_ALL, *F1_REMOVE_ALL;
+    char *EX2_REMOVE_ALL, *X1_REMOVE_ALL, *I1_REMOVE_ALL, *F1_REMOVE_ALL,
+            *ED1_REMOVE_ALL;
 
     EX2_REMOVE_ALL =
             "<top xmlns=\"ex2\""                                   \
@@ -276,6 +284,14 @@ teardown_data(void **state)
             "</hardware>\n";
 
     SR_EDIT(st, I1_REMOVE_ALL);
+
+    ED1_REMOVE_ALL =
+            "<first xmlns=\"ed1\""                                        \
+            "xmlns:xc=\"urn:ietf:params:xml:ns:netconf:base:1.0\""          \
+            "xc:operation=\"remove\">"                                      \
+            "</first>\n";
+
+    SR_EDIT(st, ED1_REMOVE_ALL);
 }
 
 static int
@@ -301,6 +317,7 @@ local_teardown(void **state)
     assert_int_equal(sr_remove_module(conn, "xpath"), SR_ERR_OK);
     assert_int_equal(sr_remove_module(conn, "filter1"), SR_ERR_OK);
     assert_int_equal(sr_remove_module(conn, "issue1"), SR_ERR_OK);
+    assert_int_equal(sr_remove_module(conn, "edit1"), SR_ERR_OK);
     assert_int_equal(sr_disconnect(conn), SR_ERR_OK);
 
     /* close netopeer2 server */
@@ -453,10 +470,121 @@ test_xpath_basic(void **state)
             "</get-config>\n";
 
     /* test union */
+    GET_CONFIG_FILTER(st, "/example2:top/protocols/ospf/area[name='0.0.0.0']|"
+            "/issue1:hardware/component[name='ComponentName']");
+    assert_string_equal(st->str, expected);
+    FREE_TEST_VARS(st);
+
+    /* test namespaces */
     GET_CONFIG_FILTER(st, "/top/protocols/ospf/area[name='0.0.0.0']|"
             "/hardware/component[name='ComponentName']");
     assert_string_equal(st->str, expected);
     FREE_TEST_VARS(st);
+
+    GET_CONFIG_FILTER(st, "/top");
+
+    expected =
+            "<get-config xmlns=\"urn:ietf:params:xml:ns:netconf:base:1.0\">\n" \
+            "  <data>\n"                                                       \
+            "    <top xmlns=\"ex2\">\n"                                        \
+            "      <protocols>\n"                                              \
+            "        <ospf>\n"                                                 \
+            "          <area>\n"                                               \
+            "            <name>0.0.0.0</name>\n"                               \
+            "            <interfaces>\n"                                       \
+            "              <interface>\n"                                      \
+            "                <name>192.0.2.1</name>\n"                         \
+            "              </interface>\n"                                     \
+            "              <interface>\n"                                      \
+            "                <name>192.0.2.4</name>\n"                         \
+            "              </interface>\n"                                     \
+            "            </interfaces>\n"                                      \
+            "          </area>\n"                                              \
+            "          <area>\n"                                               \
+            "            <name>192.168.0.0</name>\n"                           \
+            "            <interfaces>\n"                                       \
+            "              <interface>\n"                                      \
+            "                <name>192.168.0.1</name>\n"                       \
+            "              </interface>\n"                                     \
+            "              <interface>\n"                                      \
+            "                <name>192.168.0.12</name>\n"                      \
+            "              </interface>\n"                                     \
+            "              <interface>\n"                                      \
+            "                <name>192.168.0.25</name>\n"                      \
+            "              </interface>\n"                                     \
+            "            </interfaces>\n"                                      \
+            "          </area>\n"                                              \
+            "        </ospf>\n"                                                \
+            "      </protocols>\n"                                             \
+            "    </top>\n"                                                     \
+            "    <top xmlns=\"f1\">\n"                                         \
+            "      <devices>\n"                                                \
+            "        <desktops>\n"                                             \
+            "          <desktop>\n"                                            \
+            "            <name>Seventh</name>\n"                               \
+            "            <address>192.168.0.130</address>\n"                   \
+            "          </desktop>\n"                                           \
+            "          <desktop>\n"                                            \
+            "            <name>Sixth</name>\n"                                 \
+            "            <address>192.168.0.142</address>\n"                   \
+            "          </desktop>\n"                                           \
+            "        </desktops>\n"                                            \
+            "        <servers>\n"                                              \
+            "          <server>\n"                                             \
+            "            <name>First</name>\n"                                 \
+            "            <address>192.168.0.4</address>\n"                     \
+            "            <port>80</port>\n"                                    \
+            "          </server>\n"                                            \
+            "          <server>\n"                                             \
+            "            <name>Second</name>\n"                                \
+            "            <address>192.168.0.12</address>\n"                    \
+            "            <port>80</port>\n"                                    \
+            "          </server>\n"                                            \
+            "          <server>\n"                                             \
+            "            <name>Fourth</name>\n"                                \
+            "            <address>192.168.0.50</address>\n"                    \
+            "            <port>22</port>\n"                                    \
+            "          </server>\n"                                            \
+            "          <server>\n"                                             \
+            "            <name>Fifth</name>\n"                                 \
+            "            <address>192.168.0.50</address>\n"                    \
+            "            <port>443</port>\n"                                   \
+            "          </server>\n"                                            \
+            "          <server>\n"                                             \
+            "            <name>Sixth</name>\n"                                 \
+            "            <address>192.168.0.102</address>\n"                   \
+            "            <port>22</port>\n"                                    \
+            "          </server>\n"                                            \
+            "        </servers>\n"                                             \
+            "      </devices>\n"                                               \
+            "    </top>\n"                                                     \
+            "    <top xmlns=\"x1\">\n"                                         \
+            "      <item>\n"                                                   \
+            "        <price>2</price>\n"                                       \
+            "      </item>\n"                                                  \
+            "      <item>\n"                                                   \
+            "        <price>3</price>\n"                                       \
+            "      </item>\n"                                                  \
+            "      <item>\n"                                                   \
+            "        <price>4</price>\n"                                       \
+            "      </item>\n"                                                  \
+            "      <item>\n"                                                   \
+            "        <price>6</price>\n"                                       \
+            "      </item>\n"                                                  \
+            "      <item>\n"                                                   \
+            "        <price>8</price>\n"                                       \
+            "      </item>\n"                                                  \
+            "      <item>\n"                                                   \
+            "        <price>13</price>\n"                                      \
+            "      </item>\n"                                                  \
+            "    </top>\n"                                                     \
+            "  </data>\n"                                                      \
+            "</get-config>\n";
+
+    assert_string_equal(st->str, expected);
+    FREE_TEST_VARS(st);
+
+    /* TODO: Content match xpath */
 }
 
 static void
@@ -464,7 +592,7 @@ test_subtree_basic(void **state)
 {
     struct np_test *st = *state;
     const char *EX2_FILTER_AREA1, *subtree1, *F1_SELECTION_NODE_TEST,
-            *F1_SELECTION_NODE_RESULT;
+            *F1_SELECTION_NODE_RESULT, *expected;
 
     GET_CONFIG(st);
 
@@ -557,6 +685,20 @@ test_subtree_basic(void **state)
             "</get-config>\n";
 
     assert_string_equal(st->str, F1_SELECTION_NODE_RESULT);
+
+    FREE_TEST_VARS(st);
+
+    /* Test top level match leaf node */
+    GET_CONFIG_FILTER(st, "<first xmlns=\"ed1\">Test</first>");
+
+    expected =
+            "<get-config xmlns=\"urn:ietf:params:xml:ns:netconf:base:1.0\">\n" \
+            "  <data>\n"                                                       \
+            "    <first xmlns=\"ed1\">Test</first>\n"                          \
+            "  </data>\n"                                                      \
+            "</get-config>\n";
+
+    assert_string_equal(st->str, expected);
 
     FREE_TEST_VARS(st);
 }
