@@ -43,8 +43,8 @@ local_setup(void **state)
     const char *module1 = NP_TEST_MODULE_DIR "/edit1.yang";
     const char *module2 = NP_TEST_MODULE_DIR "/edit2.yang";
     const char *module3 = NP_TEST_MODULE_DIR "/edit3.yang";
-    const char *module4 = NP_TEST_MODULE_DIR "/rfc1.yang";
-    const char *module5 = NP_TEST_MODULE_DIR "/rfc2.yang";
+    const char *module4 = NP_TEST_MODULE_DIR "/example1.yang";
+    const char *module5 = NP_TEST_MODULE_DIR "/example2.yang";
 
     /* setup environment necessary for installing module */
     NP_GLOB_SETUP_ENV_FUNC;
@@ -78,8 +78,8 @@ local_teardown(void **state)
     assert_int_equal(sr_remove_module(conn, "edit1"), SR_ERR_OK);
     assert_int_equal(sr_remove_module(conn, "edit2"), SR_ERR_OK);
     assert_int_equal(sr_remove_module(conn, "edit3"), SR_ERR_OK);
-    assert_int_equal(sr_remove_module(conn, "rfc1"), SR_ERR_OK);
-    assert_int_equal(sr_remove_module(conn, "rfc2"), SR_ERR_OK);
+    assert_int_equal(sr_remove_module(conn, "example1"), SR_ERR_OK);
+    assert_int_equal(sr_remove_module(conn, "example2"), SR_ERR_OK);
     assert_int_equal(sr_disconnect(conn), SR_ERR_OK);
 
     /* close netopeer2 server */
@@ -491,22 +491,22 @@ test_remove(void **state)
 }
 
 static void
-test_rfc1(void **state)
+test_ex1(void **state)
 {
     /* First example for edit-config from rfc 6241 section 7.2 */
     struct np_test *st = *state;
-    const char *RFC1_DELETE, *RFC1_VALID_DATA2, *RFC1_VALID_DATA;
+    const char *EX1_DELETE, *EX1_VALID_DATA2, *EX1_VALID_DATA;
 
-    RFC1_VALID_DATA =
-            "<top xmlns=\"rfc1\">"                      \
+    EX1_VALID_DATA =
+            "<top xmlns=\"ex1\">"                      \
             "  <interface>"                             \
             "    <name>Ethernet0/0</name>"              \
             "    <mtu>1500</mtu>"                       \
             "  </interface>"                            \
             "</top>";
 
-    /* Send rpc editing module rfc1 */
-    SEND_EDIT_RPC(st, RFC1_VALID_DATA);
+    /* Send rpc editing module ex1 */
+    SEND_EDIT_RPC(st, EX1_VALID_DATA);
 
     /* Receive a reply, should succeed */
     ASSERT_OK_REPLY(st);
@@ -518,8 +518,8 @@ test_rfc1(void **state)
     assert_null(strstr(st->str, "address"));
     FREE_TEST_VARS(st);
 
-    RFC1_VALID_DATA2 =
-            "<top xmlns=\"rfc1\">"                      \
+    EX1_VALID_DATA2 =
+            "<top xmlns=\"ex1\">"                      \
             "  <interface operation=\"replace\">"       \
             "    <name>Ethernet0/0</name>"              \
             "    <mtu>1500</mtu>"                       \
@@ -530,8 +530,8 @@ test_rfc1(void **state)
             "  </interface>"                            \
             "</top>";
 
-    /* Send rpc replacing module rfc1 */
-    SEND_EDIT_RPC(st, RFC1_VALID_DATA2);
+    /* Send rpc replacing module ex1 */
+    SEND_EDIT_RPC(st, EX1_VALID_DATA2);
 
     /* Receive a reply, should succeed*/
     ASSERT_OK_REPLY(st);
@@ -543,16 +543,16 @@ test_rfc1(void **state)
     assert_non_null(strstr(st->str, "address"));
     FREE_TEST_VARS(st);
 
-    RFC1_DELETE =
-            "<top xmlns=\"rfc1\""                                   \
+    EX1_DELETE =
+            "<top xmlns=\"ex1\""                                   \
             "xmlns:xc=\"urn:ietf:params:xml:ns:netconf:base:1.0\">" \
             "  <interface xc:operation=\"delete\">"                 \
             "    <name>Ethernet0/0</name>"                          \
             "  </interface>"                                        \
             "</top>";
 
-    /* Send rpc deleting config in module rfc1 */
-    SEND_EDIT_RPC(st, RFC1_DELETE);
+    /* Send rpc deleting config in module ex1 */
+    SEND_EDIT_RPC(st, EX1_DELETE);
 
     /* Receive a reply, should succeed*/
     ASSERT_OK_REPLY(st);
@@ -564,17 +564,17 @@ test_rfc1(void **state)
 }
 
 static void
-test_rfc2(void **state)
+test_ex2(void **state)
 {
     /* Second example for edit-config from rfc 6241 section 7.2 */
     struct np_test *st = *state;
-    const char *RFC2_DELETE_REST, *RFC2_DELETE_DATA,
-            *RFC2_VALID_DATA, *RFC2_VALID_DATA2;
+    const char *EX2_DELETE_REST, *EX2_DELETE_DATA,
+            *EX2_VALID_DATA, *EX2_VALID_DATA2;
 
     /* Need to have some running config first */
 
-    RFC2_VALID_DATA =
-            "<top xmlns=\"rfc2\">"                      \
+    EX2_VALID_DATA =
+            "<top xmlns=\"ex2\">"                      \
             "  <protocols>"                             \
             "    <ospf>"                                \
             "      <area>"                              \
@@ -589,16 +589,16 @@ test_rfc2(void **state)
             "  </protocols>"                            \
             "</top>";
 
-    /* Send rpc editing module rfc2 */
-    SEND_EDIT_RPC(st, RFC2_VALID_DATA);
+    /* Send rpc editing module ex2 */
+    SEND_EDIT_RPC(st, EX2_VALID_DATA);
 
     /* Receive a reply, should succeed*/
     ASSERT_OK_REPLY(st);
 
     FREE_TEST_VARS(st);
 
-    RFC2_VALID_DATA2 =
-            "<top xmlns=\"rfc2\">"                      \
+    EX2_VALID_DATA2 =
+            "<top xmlns=\"ex2\">"                      \
             "  <protocols>"                             \
             "    <ospf>"                                \
             "      <area>"                              \
@@ -613,16 +613,16 @@ test_rfc2(void **state)
             "  </protocols>"                            \
             "</top>";
 
-    /* Send another rpc editing module rfc2 */
-    SEND_EDIT_RPC(st, RFC2_VALID_DATA2);
+    /* Send another rpc editing module ex2 */
+    SEND_EDIT_RPC(st, EX2_VALID_DATA2);
 
     /* Receive a reply, should succeed */
     ASSERT_OK_REPLY(st);
 
     FREE_TEST_VARS(st);
 
-    RFC2_DELETE_DATA =
-            "<top xmlns=\"rfc2\">"                                              \
+    EX2_DELETE_DATA =
+            "<top xmlns=\"ex2\">"                                              \
             "  <protocols>"                                                     \
             "    <ospf>"                                                        \
             "      <area>"                                                      \
@@ -638,8 +638,8 @@ test_rfc2(void **state)
             "  </protocols>"                                                    \
             "</top>";
 
-    /* Send rpc deleting part of the data from module rfc2 */
-    SEND_EDIT_RPC(st, RFC2_DELETE_DATA);
+    /* Send rpc deleting part of the data from module ex2 */
+    SEND_EDIT_RPC(st, EX2_DELETE_DATA);
 
     /* Receive a reply, should succeed */
     ASSERT_OK_REPLY(st);
@@ -652,14 +652,14 @@ test_rfc2(void **state)
     assert_non_null(strstr(st->str, "192.0.2.1"));
     FREE_TEST_VARS(st);
 
-    RFC2_DELETE_REST =
-            "<top xmlns=\"rfc2\""                                       \
+    EX2_DELETE_REST =
+            "<top xmlns=\"ex2\""                                       \
             "     xmlns:xc=\"urn:ietf:params:xml:ns:netconf:base:1.0\"" \
             "     xc:operation=\"delete\">"                             \
             "</top>";
 
-    /* Send rpc deleting part of the data from module rfc2 */
-    SEND_EDIT_RPC(st, RFC2_DELETE_REST);
+    /* Send rpc deleting part of the data from module ex2 */
+    SEND_EDIT_RPC(st, EX2_DELETE_REST);
 
     /* Receive a reply, should succeed */
     ASSERT_OK_REPLY(st);
@@ -680,8 +680,8 @@ main(void)
         cmocka_unit_test(test_replace),
         cmocka_unit_test(test_create),
         cmocka_unit_test(test_remove),
-        cmocka_unit_test(test_rfc1),
-        cmocka_unit_test(test_rfc2),
+        cmocka_unit_test(test_ex1),
+        cmocka_unit_test(test_ex2),
     };
 
     nc_verbosity(NC_VERB_WARNING);

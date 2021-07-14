@@ -1,6 +1,7 @@
-module rfc1 {
-  namespace rfc1;
-  prefix rfc1;
+module example1 {
+  namespace ex1;
+  prefix ex1;
+  desription "module that corresponds with one of the rfc6241#7.2 examples"
 
   import ietf-inet-types {
     prefix "inet";

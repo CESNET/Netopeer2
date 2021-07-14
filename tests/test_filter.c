@@ -40,9 +40,9 @@ static void
 setup_data(void **state)
 {
     struct np_test *st = *state;
-    char *RFC2_COMPLEX_DATA, *X1_DATA, *F1_DATA, *I1_DATA;
+    char *EX2_COMPLEX_DATA, *X1_DATA, *F1_DATA, *I1_DATA;
 
-    RFC2_COMPLEX_DATA =
+    EX2_COMPLEX_DATA =
             "<top xmlns=\"rfc2\">\n"                      \
             "  <protocols>\n"                             \
             "    <ospf>\n"                                \
@@ -75,7 +75,7 @@ setup_data(void **state)
             "  </protocols>\n"                            \
             "</top>\n";
 
-    SR_EDIT(st, RFC2_COMPLEX_DATA);
+    SR_EDIT(st, EX2_COMPLEX_DATA);
 
     X1_DATA =
             "<top xmlns=\"x1\">\n"                  \
@@ -181,7 +181,7 @@ local_setup(void **state)
     struct np_test *st;
     sr_conn_ctx_t *conn;
     const char *features[] = {NULL};
-    const char *module1 = NP_TEST_MODULE_DIR "/rfc2.yang";
+    const char *module1 = NP_TEST_MODULE_DIR "/example2.yang";
     const char *module2 = NP_TEST_MODULE_DIR "/filter1.yang";
     const char *module3 = NP_TEST_MODULE_DIR "/xpath.yang";
     const char *module4 = NP_TEST_MODULE_DIR "/issue1.yang";
@@ -233,15 +233,15 @@ static void
 teardown_data(void **state)
 {
     struct np_test *st = *state;
-    char *RFC2_REMOVE_ALL, *X1_REMOVE_ALL, *I1_REMOVE_ALL, *F1_REMOVE_ALL;
+    char *EX2_REMOVE_ALL, *X1_REMOVE_ALL, *I1_REMOVE_ALL, *F1_REMOVE_ALL;
 
-    RFC2_REMOVE_ALL =
-            "<top xmlns=\"rfc2\""                                   \
+    EX2_REMOVE_ALL =
+            "<top xmlns=\"ex2\""                                   \
             "xmlns:xc=\"urn:ietf:params:xml:ns:netconf:base:1.0\""  \
             "xc:operation=\"remove\">"                              \
             "</top>";
 
-    SR_EDIT(st, RFC2_REMOVE_ALL);
+    SR_EDIT(st, EX2_REMOVE_ALL);
 
     X1_REMOVE_ALL =
             "<top xmlns=\"x1\""                                     \
@@ -287,7 +287,7 @@ local_teardown(void **state)
 
     /* connect to server and remove test modules */
     assert_int_equal(sr_connect(SR_CONN_DEFAULT, &conn), SR_ERR_OK);
-    assert_int_equal(sr_remove_module(conn, "rfc2"), SR_ERR_OK);
+    assert_int_equal(sr_remove_module(conn, "example2"), SR_ERR_OK);
     assert_int_equal(sr_remove_module(conn, "xpath"), SR_ERR_OK);
     assert_int_equal(sr_remove_module(conn, "filter1"), SR_ERR_OK);
     assert_int_equal(sr_remove_module(conn, "issue1"), SR_ERR_OK);
@@ -306,7 +306,7 @@ test_xpath_basic(void **state)
     expected =
             "<get-config xmlns=\"urn:ietf:params:xml:ns:netconf:base:1.0\">\n" \
             "  <data>\n"                                                       \
-            "    <top xmlns=\"rfc2\">\n"                                       \
+            "    <top xmlns=\"ex2\">\n"                                       \
             "      <protocols>\n"                                              \
             "        <ospf>\n"                                                 \
             "          <area>\n"                                               \
@@ -373,7 +373,7 @@ test_xpath_basic(void **state)
             "        </feature>\n"                                             \
             "      </component>\n"                                             \
             "    </hardware>\n"                                                \
-            "    <top xmlns=\"rfc2\">\n"                                       \
+            "    <top xmlns=\"ex2\">\n"                                       \
             "      <protocols>\n"                                              \
             "        <ospf>\n"                                                 \
             "          <area>\n"                                               \
@@ -404,7 +404,7 @@ static void
 test_subtree_basic(void **state)
 {
     struct np_test *st = *state;
-    const char *RFC2_FILTER_AREA1, *subtree1, *F1_SELECTION_NODE_TEST,
+    const char *EX2_FILTER_AREA1, *subtree1, *F1_SELECTION_NODE_TEST,
             *F1_SELECTION_NODE_RESULT;
 
     GET_CONFIG(st);
@@ -412,7 +412,7 @@ test_subtree_basic(void **state)
     FREE_TEST_VARS(st);
 
     subtree1 =
-            "<top xmlns=\"rfc2\">\n"              \
+            "<top xmlns=\"ex2\">\n"              \
             "  <protocols>\n"                     \
             "    <ospf>\n"                        \
             "      <area>\n"                      \
@@ -424,10 +424,10 @@ test_subtree_basic(void **state)
 
     GET_CONFIG_FILTER(st, subtree1);
 
-    RFC2_FILTER_AREA1 =
+    EX2_FILTER_AREA1 =
             "<get-config xmlns=\"urn:ietf:params:xml:ns:netconf:base:1.0\">\n" \
             "  <data>\n"                                                       \
-            "    <top xmlns=\"rfc2\">\n"                                       \
+            "    <top xmlns=\"ex2\">\n"                                       \
             "      <protocols>\n"                                              \
             "        <ospf>\n"                                                 \
             "          <area>\n"                                               \
@@ -447,7 +447,7 @@ test_subtree_basic(void **state)
             "  </data>\n"                                                      \
             "</get-config>\n";
 
-    assert_string_equal(st->str, RFC2_FILTER_AREA1);
+    assert_string_equal(st->str, EX2_FILTER_AREA1);
 
     FREE_TEST_VARS(st);
 
