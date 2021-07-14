@@ -43,7 +43,7 @@ setup_data(void **state)
     char *EX2_COMPLEX_DATA, *X1_DATA, *F1_DATA, *I1_DATA;
 
     EX2_COMPLEX_DATA =
-            "<top xmlns=\"rfc2\">\n"                      \
+            "<top xmlns=\"ex2\">\n"                       \
             "  <protocols>\n"                             \
             "    <ospf>\n"                                \
             "      <area>\n"                              \
@@ -364,15 +364,6 @@ test_xpath_basic(void **state)
             "<get-config "                                                     \
             "xmlns=\"urn:ietf:params:xml:ns:netconf:base:1.0\">\n"             \
             "  <data>\n"                                                       \
-            "    <hardware xmlns=\"i1\">\n"                                    \
-            "      <component>\n"                                              \
-            "        <name>ComponentName</name>\n"                             \
-            "        <class>O-RAN-RADIO</class>\n"                             \
-            "        <feature>\n"                                              \
-            "          <wireless>true</wireless>\n"                            \
-            "        </feature>\n"                                             \
-            "      </component>\n"                                             \
-            "    </hardware>\n"                                                \
             "    <top xmlns=\"ex2\">\n"                                       \
             "      <protocols>\n"                                              \
             "        <ospf>\n"                                                 \
@@ -390,6 +381,15 @@ test_xpath_basic(void **state)
             "        </ospf>\n"                                                \
             "      </protocols>\n"                                             \
             "    </top>\n"                                                     \
+            "    <hardware xmlns=\"i1\">\n"                                    \
+            "      <component>\n"                                              \
+            "        <name>ComponentName</name>\n"                             \
+            "        <class>O-RAN-RADIO</class>\n"                             \
+            "        <feature>\n"                                              \
+            "          <wireless>true</wireless>\n"                            \
+            "        </feature>\n"                                             \
+            "      </component>\n"                                             \
+            "    </hardware>\n"                                                \
             "  </data>\n"                                                      \
             "</get-config>\n";
 

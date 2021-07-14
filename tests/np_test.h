@@ -129,7 +129,8 @@
 #define SR_EDIT(state, data)                                                   \
     assert_int_equal(LY_SUCCESS,                                               \
                      lyd_parse_data_mem(state->ctx, data,                      \
-                                        LYD_XML, LYD_PARSE_ONLY, 0,            \
+                                        LYD_XML, LYD_PARSE_STRICT |            \
+                                        LYD_PARSE_ONLY, 0,                     \
                                         &state->node));                        \
     assert_non_null(state->node);                                              \
     assert_int_equal(SR_ERR_OK,                                                \

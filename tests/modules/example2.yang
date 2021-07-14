@@ -1,11 +1,13 @@
 module example2 {
   namespace ex2;
   prefix ex2;
-  desription "module that corresponds with one of the rfc6241#7.2 examples"
 
   import ietf-inet-types {
     prefix "inet";
   }
+
+  description "module that corresponds with one of the rfc6241#7.2 examples";
+
   container top {
     container protocols {
       container ospf {
