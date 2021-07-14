@@ -81,10 +81,20 @@ setup_data(void **state)
             "<top xmlns=\"x1\">\n"                  \
             "  <item>\n"                            \
             "    <price>2</price>\n"                \
+            "  </item>\n"                           \
+            "  <item>\n"                            \
             "    <price>3</price>\n"                \
+            "  </item>\n"                           \
+            "  <item>\n"                            \
             "    <price>4</price>\n"                \
+            "  </item>\n"                           \
+            "  <item>\n"                            \
             "    <price>6</price>\n"                \
+            "  </item>\n"                           \
+            "  <item>\n"                            \
             "    <price>8</price>\n"                \
+            "  </item>\n"                           \
+            "  <item>\n"                            \
             "    <price>13</price>\n"               \
             "  </item>\n"                           \
             "</top>\n";
@@ -358,13 +368,62 @@ test_xpath_basic(void **state)
     assert_string_equal(st->str, expected);
     FREE_TEST_VARS(st);
 
-    /* TODO: use boolean operators */
+    /* Test boolean operators */
+    expected =
+            "<get-config "                                                     \
+            "xmlns=\"urn:ietf:params:xml:ns:netconf:base:1.0\">\n"             \
+            "  <data>\n"                                                       \
+            "    <top xmlns=\"x1\">\n"                                         \
+            "      <item>\n"                                                   \
+            "        <price>3</price>\n"                                       \
+            "      </item>\n"                                                  \
+            "      <item>\n"                                                   \
+            "        <price>4</price>\n"                                       \
+            "      </item>\n"                                                  \
+            "      <item>\n"                                                   \
+            "        <price>6</price>\n"                                       \
+            "      </item>\n"                                                  \
+            "      <item>\n"                                                   \
+            "        <price>8</price>\n"                                       \
+            "      </item>\n"                                                  \
+            "    </top>\n"                                                     \
+            "  </data>\n"                                                      \
+            "</get-config>\n";
+
+    GET_CONFIG_FILTER(st, "/top/item[price > 2 and price <= 8]");
+    assert_string_equal(st->str, expected);
+    FREE_TEST_VARS(st);
 
     expected =
             "<get-config "                                                     \
             "xmlns=\"urn:ietf:params:xml:ns:netconf:base:1.0\">\n"             \
             "  <data>\n"                                                       \
-            "    <top xmlns=\"ex2\">\n"                                       \
+            "    <top xmlns=\"x1\">\n"                                         \
+            "      <item>\n"                                                   \
+            "        <price>2</price>\n"                                       \
+            "      </item>\n"                                                  \
+            "      <item>\n"                                                   \
+            "        <price>3</price>\n"                                       \
+            "      </item>\n"                                                  \
+            "      <item>\n"                                                   \
+            "        <price>8</price>\n"                                       \
+            "      </item>\n"                                                  \
+            "      <item>\n"                                                   \
+            "        <price>13</price>\n"                                      \
+            "      </item>\n"                                                  \
+            "    </top>\n"                                                     \
+            "  </data>\n"                                                      \
+            "</get-config>\n";
+
+    GET_CONFIG_FILTER(st, "/top/item[price < 4 or price >= 8]");
+    assert_string_equal(st->str, expected);
+    FREE_TEST_VARS(st);
+
+    expected =
+            "<get-config "                                                     \
+            "xmlns=\"urn:ietf:params:xml:ns:netconf:base:1.0\">\n"             \
+            "  <data>\n"                                                       \
+            "    <top xmlns=\"ex2\">\n"                                        \
             "      <protocols>\n"                                              \
             "        <ospf>\n"                                                 \
             "          <area>\n"                                               \
@@ -412,7 +471,7 @@ test_subtree_basic(void **state)
     FREE_TEST_VARS(st);
 
     subtree1 =
-            "<top xmlns=\"ex2\">\n"              \
+            "<top xmlns=\"ex2\">\n"               \
             "  <protocols>\n"                     \
             "    <ospf>\n"                        \
             "      <area>\n"                      \
@@ -427,7 +486,7 @@ test_subtree_basic(void **state)
     EX2_FILTER_AREA1 =
             "<get-config xmlns=\"urn:ietf:params:xml:ns:netconf:base:1.0\">\n" \
             "  <data>\n"                                                       \
-            "    <top xmlns=\"ex2\">\n"                                       \
+            "    <top xmlns=\"ex2\">\n"                                        \
             "      <protocols>\n"                                              \
             "        <ospf>\n"                                                 \
             "          <area>\n"                                               \
