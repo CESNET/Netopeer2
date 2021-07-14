@@ -76,6 +76,7 @@ setup_data(void **state)
             "</top>\n";
 
     SR_EDIT(st, EX2_COMPLEX_DATA);
+    FREE_TEST_VARS(st);
 
     X1_DATA =
             "<top xmlns=\"x1\">\n"                  \
@@ -100,6 +101,7 @@ setup_data(void **state)
             "</top>\n";
 
     SR_EDIT(st, X1_DATA);
+    FREE_TEST_VARS(st);
 
     I1_DATA =
             "<hardware xmlns=\"i1\">\n"             \
@@ -113,6 +115,7 @@ setup_data(void **state)
             "</hardware>\n";
 
     SR_EDIT(st, I1_DATA);
+    FREE_TEST_VARS(st);
 
     F1_DATA =
             "<top xmlns=\"f1\">\n"                           \
@@ -158,10 +161,12 @@ setup_data(void **state)
             "</top>\n";
 
     SR_EDIT(st, F1_DATA);
+    FREE_TEST_VARS(st);
 
     ED1_DATA = "<first xmlns=\"ed1\">Test</first>\n";
 
     SR_EDIT(st, ED1_DATA);
+    FREE_TEST_VARS(st);
 }
 
 static int

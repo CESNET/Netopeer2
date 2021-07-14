@@ -40,10 +40,14 @@
 
 #define FREE_TEST_VARS(state)                   \
     nc_rpc_free(state->rpc);                    \
+    state->rpc = NULL;                          \
     lyd_free_tree(state->envp);                 \
+    state->node = NULL;                         \
     lyd_free_tree(state->op);                   \
-    if (state->str)                             \
-    {                                           \
+    state->node = NULL;                         \
+    lyd_free_tree(state->node);                 \
+    state->node = NULL;                         \
+    if (state->str) {                           \
         free(state->str);                       \
     }                                           \
     state->str = NULL;
