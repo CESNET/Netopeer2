@@ -561,9 +561,8 @@ test_get(void **state)
             "<hardware xmlns=\"i1\">\n"             \
             "  <component>\n"                       \
             "    <class>O-RAN-RADIO</class>\n"      \
-            "      <feature>\n"                     \
-            "        <wireless/>\n"                 \
-            "      </feature>\n"                    \
+            "    <feature/>\n"                      \
+            "    <serial-num/>\n"                   \
             "  </component>\n"                      \
             "</hardware>\n";
 
@@ -593,9 +592,10 @@ test_get(void **state)
             "<hardware xmlns=\"i1\">\n"             \
             "  <component>\n"                       \
             "    <class>O-RAN-RADIO</class>\n"      \
-            "      <feature>\n"                     \
-            "        <wireless>true</wireless>\n"   \
-            "      </feature>\n"                    \
+            "    <serial-num>1234</serial-num>\n"   \
+            "    <feature>\n"                       \
+            "      <wireless>true</wireless>\n"     \
+            "    </feature>\n"                      \
             "  </component>\n"                      \
             "</hardware>\n";
 
