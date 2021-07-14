@@ -162,4 +162,6 @@ int setup_setenv_sysrepo(const char *test_name);
 
 int np_glob_teardown(void **state);
 
+void parse_arg(int argc, char **argv);
+
 #endif /* _NP_TEST_H_ */

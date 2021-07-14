@@ -339,7 +339,7 @@ test_unsuported(void **state)
 }
 
 int
-main(void)
+main(int argc, char **argv)
 {
     const struct CMUnitTest tests[] = {
         cmocka_unit_test(test_types),
@@ -355,5 +355,6 @@ main(void)
     };
 
     nc_verbosity(NC_VERB_WARNING);
+    parse_arg(argc, argv);
     return cmocka_run_group_tests(tests, local_setup, np_glob_teardown);
 }

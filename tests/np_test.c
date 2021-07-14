@@ -41,6 +41,21 @@
 
 #include "np_test_config.h"
 
+uint8_t debug = 0; /* Global variable to indicate if debugging */
+
+void
+parse_arg(int argc, char **argv)
+{
+    if (argc <= 1) {
+        return;
+    }
+
+    if (!strcmp(argv[1], "-d") || !strcmp(*argv, "--debug")) {
+        puts("Starting in debug mode.");
+        debug = 1;
+    }
+}
+
 static int
 setup_server_socket_wait(void)
 {
@@ -103,6 +118,8 @@ np_glob_setup_np2(void **state)
     struct np_test *st;
     pid_t pid;
     int fd;
+    int pipefd[2];
+    int buf;
 
     /* sysrepo environment variables must be set by NP_GLOB_SETUP_ENV_FUNC prior */
 
@@ -123,12 +140,27 @@ np_glob_setup_np2(void **state)
         return 1;
     }
 
+    /* create pipe for synchronisation if debugging */
+    if (debug) {
+        if (pipe(pipefd)) {
+            return 1;
+        }
+    }
+
     /* fork and start the server */
     if (!(pid = fork())) {
         /* open log file */
         fd = open(NP_LOG_PATH, O_WRONLY | O_CREAT | O_TRUNC, 00600);
         if (fd == -1) {
             goto child_error;
+        }
+
+        if (debug) {
+            printf("pid of netopeer server is: %ld\n", (long) getpid());
+            puts("Press return to continue the tests...");
+            buf = getc(stdin);
+            write(pipefd[1], &buf, 1);
+            close(pipefd[1]);
         }
 
         /* redirect stdout and stderr */
@@ -146,6 +178,11 @@ child_error:
         exit(1);
     } else if (pid == -1) {
         return 1;
+    }
+
+    if (debug) {
+        read(pipefd[0], &buf, 1);
+        close(pipefd[0]);
     }
 
     /* wait for the server, until it creates its socket */
