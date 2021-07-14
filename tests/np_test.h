@@ -107,10 +107,10 @@
     assert_int_equal(LY_SUCCESS,                                               \
                      lyd_print_mem(&state->str, state->op, LYD_XML, 0));
 
-#define SEND_EDIT_RPC(state, module)                                           \
+#define SEND_EDIT_RPC(state, config)                                           \
     state->rpc = nc_rpc_edit(NC_DATASTORE_RUNNING, NC_RPC_EDIT_DFLTOP_MERGE,   \
                              NC_RPC_EDIT_TESTOPT_SET,                          \
-                             NC_RPC_EDIT_ERROPT_ROLLBACK, module,              \
+                             NC_RPC_EDIT_ERROPT_ROLLBACK, config,              \
                              NC_PARAMTYPE_CONST);                              \
     state->msgtype = nc_send_rpc(state->nc_sess, state->rpc,                   \
                                  1000, &state->msgid);                         \

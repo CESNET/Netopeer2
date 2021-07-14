@@ -498,7 +498,7 @@ test_ex1(void **state)
     const char *EX1_DELETE, *EX1_VALID_DATA2, *EX1_VALID_DATA;
 
     EX1_VALID_DATA =
-            "<top xmlns=\"ex1\">"                      \
+            "<top xmlns=\"ex1\">"                       \
             "  <interface>"                             \
             "    <name>Ethernet0/0</name>"              \
             "    <mtu>1500</mtu>"                       \
@@ -519,7 +519,7 @@ test_ex1(void **state)
     FREE_TEST_VARS(st);
 
     EX1_VALID_DATA2 =
-            "<top xmlns=\"ex1\">"                      \
+            "<top xmlns=\"ex1\">"                       \
             "  <interface operation=\"replace\">"       \
             "    <name>Ethernet0/0</name>"              \
             "    <mtu>1500</mtu>"                       \
@@ -544,7 +544,7 @@ test_ex1(void **state)
     FREE_TEST_VARS(st);
 
     EX1_DELETE =
-            "<top xmlns=\"ex1\""                                   \
+            "<top xmlns=\"ex1\""                                    \
             "xmlns:xc=\"urn:ietf:params:xml:ns:netconf:base:1.0\">" \
             "  <interface xc:operation=\"delete\">"                 \
             "    <name>Ethernet0/0</name>"                          \
@@ -574,7 +574,7 @@ test_ex2(void **state)
     /* Need to have some running config first */
 
     EX2_VALID_DATA =
-            "<top xmlns=\"ex2\">"                      \
+            "<top xmlns=\"ex2\">"                       \
             "  <protocols>"                             \
             "    <ospf>"                                \
             "      <area>"                              \
@@ -598,7 +598,7 @@ test_ex2(void **state)
     FREE_TEST_VARS(st);
 
     EX2_VALID_DATA2 =
-            "<top xmlns=\"ex2\">"                      \
+            "<top xmlns=\"ex2\">"                       \
             "  <protocols>"                             \
             "    <ospf>"                                \
             "      <area>"                              \
@@ -623,19 +623,19 @@ test_ex2(void **state)
 
     EX2_DELETE_DATA =
             "<top xmlns=\"ex2\">"                                              \
-            "  <protocols>"                                                     \
-            "    <ospf>"                                                        \
-            "      <area>"                                                      \
-            "        <name>0.0.0.0</name>"                                      \
-            "        <interfaces"                                               \
-            "         xmlns:xc=\"urn:ietf:params:xml:ns:netconf:base:1.0\">"    \
-            "          <interface xc:operation=\"delete\">"                     \
-            "            <name>192.0.2.4</name>"                                \
-            "          </interface>"                                            \
-            "        </interfaces>"                                             \
-            "      </area>"                                                     \
-            "    </ospf>"                                                       \
-            "  </protocols>"                                                    \
+            "  <protocols>"                                                    \
+            "    <ospf>"                                                       \
+            "      <area>"                                                     \
+            "        <name>0.0.0.0</name>"                                     \
+            "        <interfaces"                                              \
+            "         xmlns:xc=\"urn:ietf:params:xml:ns:netconf:base:1.0\">"   \
+            "          <interface xc:operation=\"delete\">"                    \
+            "            <name>192.0.2.4</name>"                               \
+            "          </interface>"                                           \
+            "        </interfaces>"                                            \
+            "      </area>"                                                    \
+            "    </ospf>"                                                      \
+            "  </protocols>"                                                   \
             "</top>";
 
     /* Send rpc deleting part of the data from module ex2 */
@@ -653,7 +653,7 @@ test_ex2(void **state)
     FREE_TEST_VARS(st);
 
     EX2_DELETE_REST =
-            "<top xmlns=\"ex2\""                                       \
+            "<top xmlns=\"ex2\""                                        \
             "     xmlns:xc=\"urn:ietf:params:xml:ns:netconf:base:1.0\"" \
             "     xc:operation=\"delete\">"                             \
             "</top>";
