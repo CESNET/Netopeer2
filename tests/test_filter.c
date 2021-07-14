@@ -584,7 +584,20 @@ test_xpath_basic(void **state)
     assert_string_equal(st->str, expected);
     FREE_TEST_VARS(st);
 
-    /* TODO: Content match xpath */
+    /* Content match xpath on top-level leaf*/
+
+    GET_CONFIG_FILTER(st, "/edit1:first[.='Test']");
+
+    expected =
+            "<get-config xmlns=\"urn:ietf:params:xml:ns:netconf:base:1.0\">\n" \
+            "  <data>\n"                                                       \
+            "    <first xmlns=\"ed1\">Test</first>\n"                          \
+            "  </data>\n"                                                      \
+            "</get-config>\n";
+
+    assert_string_equal(st->str, expected);
+
+    FREE_TEST_VARS(st);
 }
 
 static void
