@@ -47,6 +47,9 @@ setup_data(void **state)
             "  <device>\n"                          \
             "    <name>Main</name>\n"               \
             "  </device>\n"                         \
+            "  <device>\n"                          \
+            "    <name>Secondary</name>\n"          \
+            "  </device>\n"                         \
             "</devices>\n";
 
     SR_EDIT(st, data);
@@ -198,7 +201,44 @@ test_list_notif(void **state)
 }
 
 static void
-test_filter_notif_no_pass(void **state)
+test_subtree_filter_no_matching_node(void **state)
+{
+    struct np_test *st = *state;
+    const char *filter;
+
+    filter =                                        \
+            "<devices xmlns=\"n2\">\n"              \
+            "  <device>\n"                          \
+            "    <name>Main</name>\n"               \
+            "    </power-on>\n"                     \
+            "  </device>\n"                         \
+            "</devices>\n";
+
+        /* reestablish NETCONF connection */
+    nc_session_free(st->nc_sess, NULL);
+    st->nc_sess = nc_connect_unix(NP_SOCKET_PATH, NULL);
+    assert_non_null(st->nc_sess);
+
+    /* Get a subscription to receive notifications */
+    st->rpc = nc_rpc_subscribe(NULL, filter, NULL, NULL, NC_PARAMTYPE_CONST);
+
+    st->msgtype = nc_send_rpc(st->nc_sess, st->rpc, 1000, &st->msgid);
+    assert_int_equal(NC_MSG_RPC, st->msgtype);
+
+    /* check reply */
+    st->msgtype = nc_recv_reply(st->nc_sess, st->rpc, st->msgid, 1000,
+            &st->envp, &st->op);
+    assert_int_equal(NC_MSG_REPLY, st->msgtype);
+    assert_null(st->op);
+
+    /* Should be an rpc-error since no notification can match the filter */
+    assert_string_equal(LYD_NAME(lyd_child(st->envp)), "rpc-error");
+
+    FREE_TEST_VARS(st);
+}
+
+static void
+test_subtree_filter_notif_selection_node_no_pass(void **state)
 {
     struct np_test *st = *state;
     const char *filter, *data;
@@ -231,7 +271,7 @@ test_filter_notif_no_pass(void **state)
 }
 
 static void
-test_filter_notif_pass(void **state)
+test_subtree_filter_notif_selection_node_pass(void **state)
 {
     struct np_test *st = *state;
     const char *filter, *data;
@@ -242,9 +282,89 @@ test_filter_notif_pass(void **state)
 
     /* Parse notification into lyd_node */
     data =                                      \
-        "<n1 xmlns=\"n1\">\n"                   \
-        "  <first>Test</first>\n"               \
-        "</n1>\n";
+            "<n1 xmlns=\"n1\">\n"                   \
+            "  <first>Test</first>\n"               \
+            "</n1>\n";
+
+    NOTIF_PARSE(st, data);
+
+    /* Send the notification */
+    assert_int_equal(sr_event_notif_send_tree(st->sr_sess, st->node, 1000, 1),
+            SR_ERR_OK);
+
+    /* Notification should pass due the filter */
+    RECV_NOTIF(st);
+
+    assert_string_equal(data, st->str);
+
+    FREE_TEST_VARS(st);
+}
+
+static void
+test_subtree_filter_notif_content_match_node_no_pass(void **state)
+{
+    struct np_test *st = *state;
+    const char *filter, *data;
+
+    filter =
+            "<devices xmlns=\"n2\">\n"                  \
+            "  <device>\n"                              \
+            "    <name>Main</name>\n"                   \
+            "    <power-on/>\n"                         \
+            "  </device>\n"                             \
+            "</devices>\n";
+
+    reestablish_sub(state, filter);
+
+    /* Parse notification into lyd_node */
+    data =                                      \
+            "<devices xmlns=\"n2\">\n"              \
+            "  <device>\n"                          \
+            "    <name>Secondary</name>\n"          \
+            "    <power-on>\n"                      \
+            "      <boot-time>45</boot-time>\n"     \
+            "    </power-on>\n"                     \
+            "  </device>\n"                         \
+            "</devices>\n";
+
+    NOTIF_PARSE(st, data);
+
+    /* Send the notification */
+    assert_int_equal(sr_event_notif_send_tree(st->sr_sess, st->node, 1000, 1),
+            SR_ERR_OK);
+
+    /* No notification should pass due to the filter */
+    ASSERT_NO_NOTIF(st);
+
+    FREE_TEST_VARS(st);
+}
+
+static void
+test_subtree_filter_notif_content_match_node_pass(void **state)
+{
+    struct np_test *st = *state;
+    const char *filter, *data;
+
+    filter =
+            "<devices xmlns=\"n2\">\n"                  \
+            "  <device>\n"                              \
+            "    <name>Main</name>\n"                   \
+            "    <power-on/>\n"                         \
+            "  </device>\n"                             \
+            "</devices>\n";
+
+    reestablish_sub(state, filter);
+
+    /* Parse notification into lyd_node */
+    data =                                      \
+            "<devices xmlns=\"n2\">\n"              \
+            "  <device>\n"                          \
+            "    <name>Main</name>\n"               \
+            "    <power-on>\n"                      \
+            "      <boot-time>12</boot-time>\n"     \
+            "    </power-on>\n"                     \
+            "  </device>\n"                         \
+            "</devices>\n";
 
     NOTIF_PARSE(st, data);
 
@@ -266,8 +386,11 @@ main(int argc, char **argv)
     const struct CMUnitTest tests[] = {
         cmocka_unit_test(test_basic_notif),
         cmocka_unit_test(test_list_notif),
-        cmocka_unit_test(test_filter_notif_no_pass),
-        cmocka_unit_test(test_filter_notif_pass),
+        cmocka_unit_test(test_subtree_filter_no_matching_node),
+        cmocka_unit_test(test_subtree_filter_notif_selection_node_no_pass),
+        cmocka_unit_test(test_subtree_filter_notif_selection_node_pass),
+        cmocka_unit_test(test_subtree_filter_notif_content_match_node_no_pass),
+        cmocka_unit_test(test_subtree_filter_notif_content_match_node_pass),
     };
 
     nc_verbosity(NC_VERB_WARNING);
