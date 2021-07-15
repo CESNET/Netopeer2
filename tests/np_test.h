@@ -29,7 +29,7 @@
 #include <nc_client.h>
 #include <sysrepo.h>
 
-/* global setpu for environment variables for sysrepo*/
+/* global setup for environment variables for sysrepo*/
 #define NP_GLOB_SETUP_ENV_FUNC \
     char file[64]; \
     int setenv_rv; \
@@ -42,9 +42,9 @@
     nc_rpc_free(state->rpc);                    \
     state->rpc = NULL;                          \
     lyd_free_tree(state->envp);                 \
-    state->node = NULL;                         \
+    state->envp = NULL;                         \
     lyd_free_tree(state->op);                   \
-    state->node = NULL;                         \
+    state->op = NULL;                           \
     lyd_free_tree(state->node);                 \
     state->node = NULL;                         \
     if (state->str) {                           \
@@ -139,9 +139,28 @@
     assert_non_null(state->node);                                              \
     assert_int_equal(SR_ERR_OK,                                                \
                      sr_edit_batch(state->sr_sess, state->node, "merge"));     \
-    lyd_free_tree(state->node);                                                \
     assert_int_equal(SR_ERR_OK,                                                \
                      sr_apply_changes(state->sr_sess, 0));
+
+#define NOTIF_PARSE(state, data)                                               \
+    assert_int_equal(ly_in_new_memory(data, &state->in), LY_SUCCESS);          \
+    assert_int_equal(lyd_parse_op(state->ctx, NULL, state->in, LYD_XML,        \
+                                  LYD_TYPE_NOTIF_YANG, &state->node, NULL),    \
+                     LY_SUCCESS);                                              \
+    ly_in_free(state->in, 0);
+
+#define RECV_NOTIF(state)                                                  \
+    state->msgtype = nc_recv_notif(state->nc_sess, 1000, &state->envp,     \
+                                   &state->op);                            \
+    assert_int_equal(NC_MSG_NOTIF, state->msgtype);                        \
+    while(state->op->parent) state->op = lyd_parent(state->op);            \
+    assert_int_equal(lyd_print_mem(&state->str, state->op, LYD_XML, 0),    \
+            LY_SUCCESS);
+
+#define ASSERT_NO_NOTIF(state)                                          \
+    state->msgtype = nc_recv_notif(state->nc_sess, 10, &state->envp,    \
+                                   &state->op);                         \
+    assert_int_equal(NC_MSG_WOULDBLOCK, state->msgtype);                \
 
 /* test state structure */
 struct np_test {
@@ -149,6 +168,7 @@ struct np_test {
     sr_conn_ctx_t *conn;
     sr_session_ctx_t *sr_sess;
     sr_subscription_ctx_t *sub;
+    struct ly_in *in;
     const struct ly_ctx *ctx;
     struct lyd_node *node;
     struct nc_session *nc_sess;

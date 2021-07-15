@@ -36,6 +36,49 @@
 #include "np_test.h"
 #include "np_test_config.h"
 
+static void
+setup_data(void **state)
+{
+    struct np_test *st = *state;
+    const char *data;
+
+    data =
+            "<devices xmlns=\"n2\">\n"              \
+            "  <device>\n"                          \
+            "    <name>Main</name>\n"               \
+            "  </device>\n"                         \
+            "</devices>\n";
+
+    SR_EDIT(st, data);
+    FREE_TEST_VARS(st);
+}
+
+static void
+reestablish_sub(void **state, const char *filter)
+{
+    struct np_test *st = *state;
+
+    /* reestablish NETCONF connection */
+    nc_session_free(st->nc_sess, NULL);
+    st->nc_sess = nc_connect_unix(NP_SOCKET_PATH, NULL);
+    assert_non_null(st->nc_sess);
+
+    /* Get a subscription to receive notifications */
+    st->rpc = nc_rpc_subscribe(NULL, filter, NULL, NULL, NC_PARAMTYPE_CONST);
+
+    st->msgtype = nc_send_rpc(st->nc_sess, st->rpc, 1000, &st->msgid);
+    assert_int_equal(NC_MSG_RPC, st->msgtype);
+
+    /* check reply */
+    st->msgtype = nc_recv_reply(st->nc_sess, st->rpc, st->msgid, 1000,
+            &st->envp, &st->op);
+    assert_int_equal(NC_MSG_REPLY, st->msgtype);
+    assert_null(st->op);
+    assert_string_equal(LYD_NAME(lyd_child(st->envp)), "ok");
+
+    FREE_TEST_VARS(st);
+}
+
 static int
 local_setup(void **state)
 {
@@ -43,6 +86,7 @@ local_setup(void **state)
     sr_conn_ctx_t *conn;
     const char *features[] = {NULL};
     const char *module1 = NP_TEST_MODULE_DIR "/notif1.yang";
+    const char *module2 = NP_TEST_MODULE_DIR "/notif2.yang";
     int rv;
 
     /* setup environment necessary for installing module */
@@ -53,6 +97,8 @@ local_setup(void **state)
     assert_int_equal(sr_connect(SR_CONN_DEFAULT, &conn), SR_ERR_OK);
     assert_int_equal(sr_install_module(conn, module1, NULL, features),
             SR_ERR_OK);
+    assert_int_equal(sr_install_module(conn, module2, NULL, features),
+            SR_ERR_OK);
     assert_int_equal(sr_disconnect(conn), SR_ERR_OK);
 
     /* setup netopeer2 server */
@@ -62,9 +108,10 @@ local_setup(void **state)
         /* Open connection to start a session for the tests */
         assert_int_equal(sr_connect(SR_CONN_DEFAULT, &st->conn), SR_ERR_OK);
         assert_int_equal(
-                sr_session_start(st->conn, SR_DS_RUNNING, &st->sr_sess),
+                sr_session_start(st->conn, SR_DS_OPERATIONAL, &st->sr_sess),
                 SR_ERR_OK);
         assert_non_null(st->ctx = sr_get_context(st->conn));
+        setup_data(state);
     }
     return rv;
 }
@@ -82,6 +129,7 @@ local_teardown(void **state)
     /* connect to server and remove test modules */
     assert_int_equal(sr_connect(SR_CONN_DEFAULT, &conn), SR_ERR_OK);
     assert_int_equal(sr_remove_module(conn, "notif1"), SR_ERR_OK);
+    assert_int_equal(sr_remove_module(conn, "notif2"), SR_ERR_OK);
     assert_int_equal(sr_disconnect(conn), SR_ERR_OK);
 
     /* close netopeer2 server */
@@ -89,24 +137,12 @@ local_teardown(void **state)
 }
 
 static void
-test_all_notif(void **state)
+test_basic_notif(void **state)
 {
     struct np_test *st = *state;
     const char *data;
-    struct ly_in *in;
 
-    st->rpc = nc_rpc_subscribe(NULL, NULL, NULL, NULL, NC_PARAMTYPE_CONST);
-
-    st->msgtype = nc_send_rpc(st->nc_sess, st->rpc, 1000, &st->msgid);
-    assert_int_equal(NC_MSG_RPC, st->msgtype);
-
-    /* check reply */
-    st->msgtype = nc_recv_reply(st->nc_sess, st->rpc, st->msgid, 1000,
-            &st->envp, &st->op);
-    assert_int_equal(NC_MSG_REPLY, st->msgtype);
-    assert_null(st->op);
-    assert_string_equal(LYD_NAME(lyd_child(st->envp)), "ok");
-    FREE_TEST_VARS(st);
+    reestablish_sub(state, NULL);
 
     /* Parse notification into lyd_node */
     data =
@@ -114,21 +150,110 @@ test_all_notif(void **state)
             "  <first>Test</first>\n"               \
             "</n1>\n";
 
-    ly_in_new_memory(data, &in);
-
-    assert_int_equal(LY_SUCCESS,
-            lyd_parse_op(st->ctx, NULL, in, LYD_XML,
-            LYD_TYPE_NOTIF_YANG, &st->node, NULL));
+    NOTIF_PARSE(st, data);
 
     /* Send the notification */
-    sr_event_notif_send_tree(st->sr_sess, st->node, 1000, 1);
-    ly_in_free(in, 0);
+    assert_int_equal(sr_event_notif_send_tree(st->sr_sess, st->node, 1000, 1),
+            SR_ERR_OK);
 
     /* Receive the notification and test the contents */
-    st->msgtype = nc_recv_notif(st->nc_sess, 1000, &st->envp, &st->op);
-    assert_int_equal(NC_MSG_NOTIF, st->msgtype);
-    assert_int_equal(lyd_print_mem(&st->str, st->op, LYD_XML, 0),
-            LY_SUCCESS);
+    RECV_NOTIF(st);
+
+    assert_string_equal(data, st->str);
+
+    FREE_TEST_VARS(st);
+}
+
+static void
+test_list_notif(void **state)
+{
+    struct np_test *st = *state;
+    const char *data;
+
+    reestablish_sub(state, NULL);
+
+    /* Parse notification into lyd_node */
+    data =
+            "<devices xmlns=\"n2\">\n"              \
+            "  <device>\n"                          \
+            "    <name>Main</name>\n"               \
+            "    <power-on>\n"                      \
+            "      <boot-time>12</boot-time>\n"     \
+            "    </power-on>\n"                     \
+            "  </device>\n"                         \
+            "</devices>\n";
+
+    NOTIF_PARSE(st, data);
+
+    /* Send the notification */
+    assert_int_equal(sr_event_notif_send_tree(st->sr_sess, st->node, 1000, 1),
+            SR_ERR_OK);
+
+    /* Receive the notification and test the contents */
+    RECV_NOTIF(st);
+
+    assert_string_equal(data, st->str);
+
+    FREE_TEST_VARS(st);
+}
+
+static void
+test_filter_notif_no_pass(void **state)
+{
+    struct np_test *st = *state;
+    const char *filter, *data;
+
+    filter = "<n1 xmlns=\"n1\"/>";
+
+    reestablish_sub(state, filter);
+
+    /* Parse notification into lyd_node */
+    data =                                          \
+            "<devices xmlns=\"n2\">\n"              \
+            "  <device>\n"                          \
+            "    <name>Main</name>\n"               \
+            "    <power-on>\n"                      \
+            "      <boot-time>12</boot-time>\n"     \
+            "    </power-on>\n"                     \
+            "  </device>\n"                         \
+            "</devices>\n";
+
+    NOTIF_PARSE(st, data);
+
+    /* Send the notification */
+    assert_int_equal(sr_event_notif_send_tree(st->sr_sess, st->node, 1000, 1),
+            SR_ERR_OK);
+
+    /* No notification should pass due to the filter */
+    ASSERT_NO_NOTIF(st);
+
+    FREE_TEST_VARS(st);
+}
+
+static void
+test_filter_notif_pass(void **state)
+{
+    struct np_test *st = *state;
+    const char *filter, *data;
+
+    filter = "<n1 xmlns=\"n1\"/>";
+
+    reestablish_sub(state, filter);
+
+    /* Parse notification into lyd_node */
+    data =                                      \
+        "<n1 xmlns=\"n1\">\n"                   \
+        "  <first>Test</first>\n"               \
+        "</n1>\n";
+
+    NOTIF_PARSE(st, data);
+
+    /* Send the notification */
+    assert_int_equal(sr_event_notif_send_tree(st->sr_sess, st->node, 1000, 1),
+            SR_ERR_OK);
+
+    /* Notification should pass due the filter */
+    RECV_NOTIF(st);
 
     assert_string_equal(data, st->str);
 
@@ -139,10 +264,14 @@ int
 main(int argc, char **argv)
 {
     const struct CMUnitTest tests[] = {
-        cmocka_unit_test(test_all_notif),
+        cmocka_unit_test(test_basic_notif),
+        cmocka_unit_test(test_list_notif),
+        cmocka_unit_test(test_filter_notif_no_pass),
+        cmocka_unit_test(test_filter_notif_pass),
     };
 
     nc_verbosity(NC_VERB_WARNING);
+    sr_log_stderr(SR_LL_WRN);
     parse_arg(argc, argv);
     return cmocka_run_group_tests(tests, local_setup, local_teardown);
 }

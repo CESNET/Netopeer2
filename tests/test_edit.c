@@ -89,6 +89,7 @@ local_teardown(void **state)
 static void
 test_merge(void **state)
 {
+    /* TODO: Lowercase */
     struct np_test *st = *state;
     const char *EDIT_1_VALID_DATA, *EDIT_2_VALID_DATA, *EDIT_2_INVALID_DATA_NUM;
 

@@ -251,63 +251,11 @@ local_setup(void **state)
     return rv;
 }
 
-static void
-teardown_data(void **state)
-{
-    struct np_test *st = *state;
-    char *EX2_REMOVE_ALL, *X1_REMOVE_ALL, *I1_REMOVE_ALL, *F1_REMOVE_ALL,
-            *ED1_REMOVE_ALL;
-
-    EX2_REMOVE_ALL =
-            "<top xmlns=\"ex2\""                                   \
-            "xmlns:xc=\"urn:ietf:params:xml:ns:netconf:base:1.0\""  \
-            "xc:operation=\"remove\">"                              \
-            "</top>";
-
-    SR_EDIT(st, EX2_REMOVE_ALL);
-
-    X1_REMOVE_ALL =
-            "<top xmlns=\"x1\""                                     \
-            "xmlns:xc=\"urn:ietf:params:xml:ns:netconf:base:1.0\""  \
-            "xc:operation=\"remove\">"                              \
-            "</top>";
-
-    SR_EDIT(st, X1_REMOVE_ALL);
-
-    F1_REMOVE_ALL =
-            "<top xmlns=\"f1\""                                         \
-            "xmlns:xc=\"urn:ietf:params:xml:ns:netconf:base:1.0\""      \
-            "xc:operation=\"remove\">"                                  \
-            "</top>";
-
-    SR_EDIT(st, F1_REMOVE_ALL);
-
-    I1_REMOVE_ALL =
-            "<hardware xmlns=\"i1\""                                        \
-            "xmlns:xc=\"urn:ietf:params:xml:ns:netconf:base:1.0\""          \
-            "xc:operation=\"remove\">"                                      \
-            "</hardware>\n";
-
-    SR_EDIT(st, I1_REMOVE_ALL);
-
-    ED1_REMOVE_ALL =
-            "<first xmlns=\"ed1\""                                        \
-            "xmlns:xc=\"urn:ietf:params:xml:ns:netconf:base:1.0\""          \
-            "xc:operation=\"remove\">"                                      \
-            "</first>\n";
-
-    SR_EDIT(st, ED1_REMOVE_ALL);
-}
-
 static int
 local_teardown(void **state)
 {
     struct np_test *st = *state;
     sr_conn_ctx_t *conn;
-
-    teardown_data(state);
-    /* Check if empty config */
-    ASSERT_EMPTY_CONFIG(st);
 
     /* Unsubscribe */
     sr_unsubscribe(st->sub);
