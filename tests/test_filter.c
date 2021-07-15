@@ -40,9 +40,9 @@ static void
 setup_data(void **state)
 {
     struct np_test *st = *state;
-    char *EX2_COMPLEX_DATA, *X1_DATA, *F1_DATA, *I1_DATA, *ED1_DATA;
+    char *data;
 
-    EX2_COMPLEX_DATA =
+    data =
             "<top xmlns=\"ex2\">\n"                       \
             "  <protocols>\n"                             \
             "    <ospf>\n"                                \
@@ -75,10 +75,10 @@ setup_data(void **state)
             "  </protocols>\n"                            \
             "</top>\n";
 
-    SR_EDIT(st, EX2_COMPLEX_DATA);
+    SR_EDIT(st, data);
     FREE_TEST_VARS(st);
 
-    X1_DATA =
+    data =
             "<top xmlns=\"x1\">\n"                  \
             "  <item>\n"                            \
             "    <price>2</price>\n"                \
@@ -100,10 +100,10 @@ setup_data(void **state)
             "  </item>\n"                           \
             "</top>\n";
 
-    SR_EDIT(st, X1_DATA);
+    SR_EDIT(st, data);
     FREE_TEST_VARS(st);
 
-    I1_DATA =
+    data =
             "<hardware xmlns=\"i1\">\n"             \
             "  <component>\n"                       \
             "    <name>ComponentName</name>\n"      \
@@ -114,10 +114,10 @@ setup_data(void **state)
             "  </component>\n"                      \
             "</hardware>\n";
 
-    SR_EDIT(st, I1_DATA);
+    SR_EDIT(st, data);
     FREE_TEST_VARS(st);
 
-    F1_DATA =
+    data =
             "<top xmlns=\"f1\">\n"                           \
             "  <devices>\n"                                  \
             "    <servers>\n"                                \
@@ -160,12 +160,12 @@ setup_data(void **state)
             "  </devices>\n"                                 \
             "</top>\n";
 
-    SR_EDIT(st, F1_DATA);
+    SR_EDIT(st, data);
     FREE_TEST_VARS(st);
 
-    ED1_DATA = "<first xmlns=\"ed1\">Test</first>\n";
+    data = "<first xmlns=\"ed1\">Test</first>\n";
 
-    SR_EDIT(st, ED1_DATA);
+    SR_EDIT(st, data);
     FREE_TEST_VARS(st);
 }
 
@@ -389,8 +389,14 @@ test_xpath_basic(void **state)
     GET_CONFIG_FILTER(st, "/top/protocols/ospf/area[name!='192.168.0.0']");
     assert_string_equal(st->str, expected);
     FREE_TEST_VARS(st);
+}
 
-    /* Test boolean operators */
+static void
+test_xpath_boolean_operator(void **state)
+{
+    struct np_test *st = *state;
+    const char *expected;
+
     expected =
             "<get-config "                                                     \
             "xmlns=\"urn:ietf:params:xml:ns:netconf:base:1.0\">\n"             \
@@ -440,6 +446,13 @@ test_xpath_basic(void **state)
     GET_CONFIG_FILTER(st, "/top/item[price < 4 or price >= 8]");
     assert_string_equal(st->str, expected);
     FREE_TEST_VARS(st);
+}
+
+static void
+test_xpath_union(void **state)
+{
+    struct np_test *st = *state;
+    const char *expected;
 
     expected =
             "<get-config "                                                     \
@@ -474,11 +487,50 @@ test_xpath_basic(void **state)
             "  </data>\n"                                                      \
             "</get-config>\n";
 
-    /* test union */
     GET_CONFIG_FILTER(st, "/example2:top/protocols/ospf/area[name='0.0.0.0']|"
             "/issue1:hardware/component[name='ComponentName']");
     assert_string_equal(st->str, expected);
     FREE_TEST_VARS(st);
+}
+
+static void
+test_xpath_namespaces(void **state)
+{
+    struct np_test *st = *state;
+    const char *expected;
+
+    expected =
+            "<get-config "                                                     \
+            "xmlns=\"urn:ietf:params:xml:ns:netconf:base:1.0\">\n"             \
+            "  <data>\n"                                                       \
+            "    <top xmlns=\"ex2\">\n"                                        \
+            "      <protocols>\n"                                              \
+            "        <ospf>\n"                                                 \
+            "          <area>\n"                                               \
+            "            <name>0.0.0.0</name>\n"                               \
+            "            <interfaces>\n"                                       \
+            "              <interface>\n"                                      \
+            "                <name>192.0.2.1</name>\n"                         \
+            "              </interface>\n"                                     \
+            "              <interface>\n"                                      \
+            "                <name>192.0.2.4</name>\n"                         \
+            "              </interface>\n"                                     \
+            "            </interfaces>\n"                                      \
+            "          </area>\n"                                              \
+            "        </ospf>\n"                                                \
+            "      </protocols>\n"                                             \
+            "    </top>\n"                                                     \
+            "    <hardware xmlns=\"i1\">\n"                                    \
+            "      <component>\n"                                              \
+            "        <name>ComponentName</name>\n"                             \
+            "        <class>O-RAN-RADIO</class>\n"                             \
+            "        <feature>\n"                                              \
+            "          <wireless>true</wireless>\n"                            \
+            "        </feature>\n"                                             \
+            "      </component>\n"                                             \
+            "    </hardware>\n"                                                \
+            "  </data>\n"                                                      \
+            "</get-config>\n";
 
     /* test namespaces */
     GET_CONFIG_FILTER(st, "/top/protocols/ospf/area[name='0.0.0.0']|"
@@ -588,8 +640,13 @@ test_xpath_basic(void **state)
 
     assert_string_equal(st->str, expected);
     FREE_TEST_VARS(st);
+}
 
-    /* Content match xpath on top-level leaf*/
+static void
+test_xpath_top_level_leaf_match(void **state)
+{
+    struct np_test *st = *state;
+    char *expected;
 
     GET_CONFIG_FILTER(st, "/edit1:first[.='Test']");
 
@@ -606,17 +663,12 @@ test_xpath_basic(void **state)
 }
 
 static void
-test_subtree_basic(void **state)
+test_subtree_content_match(void **state)
 {
     struct np_test *st = *state;
-    const char *EX2_FILTER_AREA1, *subtree1, *F1_SELECTION_NODE_TEST,
-            *F1_SELECTION_NODE_RESULT, *expected;
+    const char *filter, *expected;
 
-    GET_CONFIG(st);
-
-    FREE_TEST_VARS(st);
-
-    subtree1 =
+    filter =
             "<top xmlns=\"ex2\">\n"               \
             "  <protocols>\n"                     \
             "    <ospf>\n"                        \
@@ -627,9 +679,9 @@ test_subtree_basic(void **state)
             "  </protocols>\n"                    \
             "</top>\n";
 
-    GET_CONFIG_FILTER(st, subtree1);
+    GET_CONFIG_FILTER(st, filter);
 
-    EX2_FILTER_AREA1 =
+    expected =
             "<get-config xmlns=\"urn:ietf:params:xml:ns:netconf:base:1.0\">\n" \
             "  <data>\n"                                                       \
             "    <top xmlns=\"ex2\">\n"                                        \
@@ -652,20 +704,47 @@ test_subtree_basic(void **state)
             "  </data>\n"                                                      \
             "</get-config>\n";
 
-    assert_string_equal(st->str, EX2_FILTER_AREA1);
+    assert_string_equal(st->str, expected);
 
     FREE_TEST_VARS(st);
+}
 
-    F1_SELECTION_NODE_TEST =
+static void
+test_subtree_content_match_top_level_leaf(void **state)
+{
+    const char *expected;
+    struct np_test *st = *state;
+
+    GET_CONFIG_FILTER(st, "<first xmlns=\"ed1\">Test</first>");
+
+    expected =
+            "<get-config xmlns=\"urn:ietf:params:xml:ns:netconf:base:1.0\">\n" \
+            "  <data>\n"                                                       \
+            "    <first xmlns=\"ed1\">Test</first>\n"                          \
+            "  </data>\n"                                                      \
+            "</get-config>\n";
+
+    assert_string_equal(st->str, expected);
+
+    FREE_TEST_VARS(st);
+}
+
+static void
+test_subtree_selection_node(void **state)
+{
+    struct np_test *st = *state;
+    char *filter, *expected;
+
+    filter =
             "<top xmlns=\"f1\">\n"                  \
             "  <devices>\n"                         \
             "    <servers/>\n"                      \
             "  </devices>\n"                        \
             "</top>\n";
 
-    GET_CONFIG_FILTER(st, F1_SELECTION_NODE_TEST);
+    GET_CONFIG_FILTER(st, filter);
 
-    F1_SELECTION_NODE_RESULT =
+    expected =
             "<get-config xmlns=\"urn:ietf:params:xml:ns:netconf:base:1.0\">\n" \
             "  <data>\n"                                                       \
             "    <top xmlns=\"f1\">\n"                                         \
@@ -702,27 +781,13 @@ test_subtree_basic(void **state)
             "  </data>\n"                                                      \
             "</get-config>\n";
 
-    assert_string_equal(st->str, F1_SELECTION_NODE_RESULT);
-
-    FREE_TEST_VARS(st);
-
-    /* Test top level match leaf node */
-    GET_CONFIG_FILTER(st, "<first xmlns=\"ed1\">Test</first>");
-
-    expected =
-            "<get-config xmlns=\"urn:ietf:params:xml:ns:netconf:base:1.0\">\n" \
-            "  <data>\n"                                                       \
-            "    <first xmlns=\"ed1\">Test</first>\n"                          \
-            "  </data>\n"                                                      \
-            "</get-config>\n";
-
     assert_string_equal(st->str, expected);
 
     FREE_TEST_VARS(st);
 }
 
 static void
-test_get(void **state)
+test_get_selection_node(void **state)
 {
     struct np_test *st = *state;
     char *filter, *expected;
@@ -751,6 +816,13 @@ test_get(void **state)
     assert_string_equal(st->str, expected);
 
     FREE_TEST_VARS(st);
+}
+
+static void
+test_get_containment_node(void **state)
+{
+    struct np_test *st = *state;
+    char *filter, *expected;
 
     filter = "<hardware xmlns=\"i1\"/>\n";
 
@@ -775,6 +847,13 @@ test_get(void **state)
     assert_string_equal(st->str, expected);
 
     FREE_TEST_VARS(st);
+}
+
+static void
+test_get_content_match_node(void **state)
+{
+    struct np_test *st = *state;
+    char *filter, *expected;
 
     filter =
             "<hardware xmlns=\"i1\">\n"             \
@@ -806,6 +885,13 @@ test_get(void **state)
     assert_string_equal(st->str, expected);
 
     FREE_TEST_VARS(st);
+}
+
+static void
+test_get_operational_data(void **state)
+{
+    struct np_test *st = *state;
+    char *filter, *expected;
 
     filter =
             "<hardware xmlns=\"i1\">\n"             \
@@ -846,8 +932,17 @@ main(int argc, char **argv)
 {
     const struct CMUnitTest tests[] = {
         cmocka_unit_test(test_xpath_basic),
-        cmocka_unit_test(test_subtree_basic),
-        cmocka_unit_test(test_get),
+        cmocka_unit_test(test_xpath_boolean_operator),
+        cmocka_unit_test(test_xpath_union),
+        cmocka_unit_test(test_xpath_namespaces),
+        cmocka_unit_test(test_xpath_top_level_leaf_match),
+        cmocka_unit_test(test_subtree_content_match),
+        cmocka_unit_test(test_subtree_content_match_top_level_leaf),
+        cmocka_unit_test(test_subtree_selection_node),
+        cmocka_unit_test(test_get_selection_node),
+        cmocka_unit_test(test_get_containment_node),
+        cmocka_unit_test(test_get_content_match_node),
+        cmocka_unit_test(test_get_operational_data),
     };
 
     nc_verbosity(NC_VERB_WARNING);
