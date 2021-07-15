@@ -292,7 +292,7 @@ test_subtree_filter_notif_selection_node_pass(void **state)
     assert_int_equal(sr_event_notif_send_tree(st->sr_sess, st->node, 1000, 1),
             SR_ERR_OK);
 
-    /* Notification should pass due the filter */
+    /* Notification should pass the filter */
     RECV_NOTIF(st);
 
     assert_string_equal(data, st->str);
@@ -372,7 +372,70 @@ test_subtree_filter_notif_content_match_node_pass(void **state)
     assert_int_equal(sr_event_notif_send_tree(st->sr_sess, st->node, 1000, 1),
             SR_ERR_OK);
 
-    /* Notification should pass due the filter */
+    /* Notification should pass the filter */
+    RECV_NOTIF(st);
+
+    assert_string_equal(data, st->str);
+
+    FREE_TEST_VARS(st);
+}
+
+static void
+test_xpath_filter_notif_selection_node_no_pass(void **state)
+{
+    struct np_test *st = *state;
+    const char *filter, *data;
+
+    filter = "/notif1:n1/first";
+
+    reestablish_sub(state, filter);
+
+    /* Parse notification into lyd_node */
+    data =                                          \
+            "<devices xmlns=\"n2\">\n"              \
+            "  <device>\n"                          \
+            "    <name>Main</name>\n"               \
+            "    <power-on>\n"                      \
+            "      <boot-time>12</boot-time>\n"     \
+            "    </power-on>\n"                     \
+            "  </device>\n"                         \
+            "</devices>\n";
+
+    NOTIF_PARSE(st, data);
+
+    /* Send the notification */
+    assert_int_equal(sr_event_notif_send_tree(st->sr_sess, st->node, 1000, 1),
+            SR_ERR_OK);
+
+    /* No notification should pass due to the filter */
+    ASSERT_NO_NOTIF(st);
+
+    FREE_TEST_VARS(st);
+}
+
+static void
+test_xpath_filter_notif_selection_node_pass(void **state)
+{
+    struct np_test *st = *state;
+    const char *filter, *data;
+
+    filter = "/notif1:n1/first";
+
+    reestablish_sub(state, filter);
+
+    /* Parse notification into lyd_node */
+    data =                                          \
+            "<n1 xmlns=\"n1\">\n"                   \
+            "  <first>Test</first>\n"               \
+            "</n1>\n";
+
+    NOTIF_PARSE(st, data);
+
+    /* Send the notification */
+    assert_int_equal(sr_event_notif_send_tree(st->sr_sess, st->node, 1000, 1),
+            SR_ERR_OK);
+
+    /* Notification should pass the filter */
     RECV_NOTIF(st);
 
     assert_string_equal(data, st->str);
@@ -391,6 +454,8 @@ main(int argc, char **argv)
         cmocka_unit_test(test_subtree_filter_notif_selection_node_pass),
         cmocka_unit_test(test_subtree_filter_notif_content_match_node_no_pass),
         cmocka_unit_test(test_subtree_filter_notif_content_match_node_pass),
+        cmocka_unit_test(test_xpath_filter_notif_selection_node_no_pass),
+        cmocka_unit_test(test_xpath_filter_notif_selection_node_pass),
     };
 
     nc_verbosity(NC_VERB_WARNING);
